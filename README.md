@@ -19,3 +19,5 @@ python -c "from pmars_simulation.analysis.plots import generate; generate()"
 ```
 
 Scenarios use identical generated workload streams for every scheduler when scenario and seed match. The four schedulers are `random`, `rule`, `greedy`, and `predictive`.
+
+GitHub SSH configuration verified — anas-hannachi
