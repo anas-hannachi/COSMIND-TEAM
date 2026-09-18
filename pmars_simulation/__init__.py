@@ -1,8 +1,6 @@
-"""Python package alias for the PMARS project.
+"""PMARS Phase 2 reproducible satellite digital twin."""
+from .core.task import Task, TaskStatus
+from .core.satellite import Satellite, SatelliteState
+from .core.simulation import Simulation
 
-The repository folder is named pmars-simulation for the project layout,
-while Python package names cannot contain hyphens. This alias keeps the
-implementation importable and testable without changing the repo naming.
-"""
-
-__all__ = []
+__all__ = ["Task", "TaskStatus", "Satellite", "SatelliteState", "Simulation"]

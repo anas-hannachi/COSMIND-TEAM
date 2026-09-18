@@ -1,1 +1,1 @@
-"""Core domain models for PMARS."""
+"""Core domain and simulation orchestration."""

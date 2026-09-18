@@ -1,16 +1,22 @@
-"""Task domain model."""
-
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
-from typing import Any, Dict
+from enum import StrEnum
+from math import exp, isfinite
 
 
-@dataclass(frozen=True)
+class TaskStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    STORED = "stored"
+    PROCESSED = "processed"
+    COMPLETED = "completed"
+    EXPIRED = "expired"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True, slots=True)
 class Task:
-    """Single unit of mission work."""
-
     id: str
     type: str
     input_size_mb: float
@@ -25,73 +31,24 @@ class Task:
     freshness_decay: float
 
     def __post_init__(self) -> None:
-        if not isinstance(self.id, str) or not self.id.strip():
-            raise ValueError("Task id must be a non-empty string.")
-        if not isinstance(self.type, str) or not self.type.strip():
-            raise ValueError("Task type must be a non-empty string.")
+        if not self.id.strip() or not self.type.strip():
+            raise ValueError("task id and type must be non-empty")
+        values = (self.input_size_mb, self.processing_demand, self.base_processing_time_s,
+                  self.processing_energy_estimate_j, self.processed_output_mb, self.mission_value,
+                  self.deadline_s, self.created_at_s, self.freshness_decay)
+        if not all(isfinite(float(x)) for x in values):
+            raise ValueError("task numeric fields must be finite")
+        if self.input_size_mb < 0 or self.processing_demand < 0 or self.processed_output_mb < 0:
+            raise ValueError("task sizes and demand cannot be negative")
+        if self.base_processing_time_s <= 0 or self.processing_energy_estimate_j < 0:
+            raise ValueError("processing time must be positive and energy non-negative")
+        if self.priority < 0 or self.mission_value < 0 or self.deadline_s < self.created_at_s:
+            raise ValueError("invalid priority, value, or deadline")
+        if not 0 <= self.freshness_decay <= 1:
+            raise ValueError("freshness_decay must be in [0, 1]")
 
-        for name in (
-            "input_size_mb",
-            "processing_demand",
-            "base_processing_time_s",
-            "processing_energy_estimate_j",
-            "processed_output_mb",
-            "mission_value",
-            "deadline_s",
-            "created_at_s",
-            "freshness_decay",
-        ):
-            value = getattr(self, name)
-            if not isinstance(value, (int, float)) or not math.isfinite(float(value)):
-                raise ValueError(f"Task field '{name}' must be a finite numeric value.")
+    def value_at(self, time_s: float) -> float:
+        return self.mission_value * exp(-self.freshness_decay * max(0.0, time_s - self.created_at_s))
 
-        if self.input_size_mb < 0:
-            raise ValueError("Task input_size_mb cannot be negative.")
-        if self.processing_demand < 0:
-            raise ValueError("Task processing_demand cannot be negative.")
-        if self.base_processing_time_s <= 0:
-            raise ValueError("Task base_processing_time_s must be positive.")
-        if self.processing_energy_estimate_j < 0:
-            raise ValueError("Task processing_energy_estimate_j cannot be negative.")
-        if self.processed_output_mb < 0:
-            raise ValueError("Task processed_output_mb cannot be negative.")
-        if not isinstance(self.priority, int):
-            raise ValueError("Task priority must be an integer.")
-        if self.priority < 0:
-            raise ValueError("Task priority cannot be negative.")
-        if self.mission_value < 0:
-            raise ValueError("Task mission_value cannot be negative.")
-        if self.deadline_s < self.created_at_s:
-            raise ValueError("Task deadline_s must be greater than or equal to created_at_s.")
-        if not 0.0 <= self.freshness_decay <= 1.0:
-            raise ValueError("Task freshness_decay must be between 0 and 1 inclusive.")
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "type": self.type,
-            "input_size_mb": self.input_size_mb,
-            "processing_demand": self.processing_demand,
-            "base_processing_time_s": self.base_processing_time_s,
-            "processing_energy_estimate_j": self.processing_energy_estimate_j,
-            "processed_output_mb": self.processed_output_mb,
-            "priority": self.priority,
-            "mission_value": self.mission_value,
-            "deadline_s": self.deadline_s,
-            "created_at_s": self.created_at_s,
-            "freshness_decay": self.freshness_decay,
-        }
-
-    def is_expired(self, current_time_s: float) -> bool:
-        if not isinstance(current_time_s, (int, float)) or not math.isfinite(float(current_time_s)):
-            raise ValueError("current_time_s must be a finite numeric value.")
-        return float(current_time_s) >= self.deadline_s
-
-    def urgency_score(self, current_time_s: float) -> float:
-        if not isinstance(current_time_s, (int, float)) or not math.isfinite(float(current_time_s)):
-            raise ValueError("current_time_s must be a finite numeric value.")
-
-        slack = self.deadline_s - float(current_time_s)
-        if slack <= 0:
-            return self.mission_value + (self.priority * 10.0) + abs(slack)
-        return self.mission_value + (self.priority * 10.0) + (1.0 / max(slack, 1e-9))
+    def is_critical(self) -> bool:
+        return self.priority >= 8
