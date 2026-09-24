@@ -68,13 +68,15 @@ This runs 7 scenarios x 6 policies x 20 common workload seeds = 840 simulations.
 The output directory contains:
 
 - `raw_runs.csv` - one aggregate metric row per scenario/policy/seed;
-- `task_outcomes.csv` - one terminal audit row per generated task;
+- `task_outcomes.csv.gz` - compressed terminal audit rows for every generated task;
 - `workloads/` and `workload_manifest.csv` - the exact matched workloads and SHA-256 hashes;
 - `summaries/` - mean/95% t-interval summaries and paired Predictive-vs-baseline differences;
 - `figures/` - SVG plots generated from the raw runs;
 - `trace/` - one deterministic arrival -> decision -> process/transmit -> outcome example from real simulator events;
 - `manifest.json` - source commit, package versions, scenario hashes, seed protocol, and run metadata.
 - `profiles/` - exact model-profile files referenced by the run, with hashes in the manifest.
+
+See [`docs/results_summary.md`](docs/results_summary.md) for the current synthetic evaluation and interpretation limits.
 
 ## Sensitivity analysis
 

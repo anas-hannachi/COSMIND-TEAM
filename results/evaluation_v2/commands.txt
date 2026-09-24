@@ -1,0 +1,8 @@
+python -m pytest
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2 --scenarios normal --schedulers random rule greedy edf contact_knapsack predictive
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2 --scenarios low_energy --schedulers random rule greedy edf contact_knapsack predictive --append
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2 --scenarios poor_link --schedulers random rule greedy edf contact_knapsack predictive --append
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2 --scenarios task_burst --schedulers random rule greedy edf contact_knapsack predictive --append
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2 --scenarios critical --schedulers random rule greedy edf contact_knapsack predictive --append
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2 --scenarios energy_link_stress --schedulers random rule greedy edf contact_knapsack predictive --append
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2 --scenarios thermal_burst_stress --schedulers random rule greedy edf contact_knapsack predictive --append

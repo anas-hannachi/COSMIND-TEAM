@@ -1,0 +1,16 @@
+mission_duration_s: 3600
+model_profile: synthetic_v1
+sunlight_s: 300
+eclipse_s: 900
+storage_mb: 2000
+energy:
+  initial_energy_j: 7500
+  solar_power_w: 65
+workload:
+  interarrival_s: [12, 25]
+  deadline_s: [500, 1400]
+  critical_probability: 0.12
+contacts:
+  - {start_s: 700, end_s: 820, bandwidth_start_mbps: 1.0, bandwidth_end_mbps: 2.0, latency_ms: 600}
+  - {start_s: 1900, end_s: 2020, bandwidth_start_mbps: 1.0, bandwidth_end_mbps: 2.0, latency_ms: 600}
+  - {start_s: 3100, end_s: 3220, bandwidth_start_mbps: 1.0, bandwidth_end_mbps: 2.0, latency_ms: 600}

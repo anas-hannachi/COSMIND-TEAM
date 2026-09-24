@@ -1,0 +1,70 @@
+{
+  "code_commit_sha": "667714aabcae2ea3447816f9622cbbbc6c5bbc33",
+  "created_utc": "2026-09-24T19:41:39.805145+00:00",
+  "dependencies": {
+    "PyYAML": "6.0.3",
+    "simpy": "4.1.2"
+  },
+  "drain_policy": "Arrivals stop at scenario mission_duration_s; scheduling drains through the latest generated task deadline.",
+  "evaluation_version": "evaluation_v2",
+  "model_profiles": {
+    "synthetic_v1": "aa81df0ce419de0c03ff89a238d4b1050e7f6074ba4d4c8ee31044c81ab3e63f",
+    "thermal_stress_v1": "b4c3a23ad3a388ce7b3ed76c4e2486da85d162f8d979e94912532de6bec98ad9"
+  },
+  "outcome_partition": "generated = timely + late + expired + rejected + unfinished + failed",
+  "platform": "Linux-7.1.13-200.fc44.x86_64-x86_64-with-glibc2.43",
+  "policy_seed_protocol": "RandomScheduler uses policy_seed = workload_seed + 100000; other schedulers are deterministic.",
+  "primary_metric": "timely_value_retention",
+  "python_version": "3.14.7 (main, Aug 10 2026, 00:00:00) [GCC 16.1.1 20260515 (Red Hat 16.1.1-2)]",
+  "run_count": 840,
+  "scenario_configs": {
+    "critical": "e27f96a769cae65b8c41348e7e09ea3a80b5db255ad3e25f4742e4ccd98cab3b",
+    "energy_link_stress": "c2368b8d33161c4e44bb8c3d24cb2ff611abfabdf3ce955748c62bb8687fddc2",
+    "low_energy": "8fa3940651421445d1d2c62aefd3bff0c44b17bfb695e89fdce79c16f116c3e0",
+    "normal": "a5adc13a69706c40ce8d20420e5cb19c37832810ee0f0070ec72fb94dae408a8",
+    "poor_link": "345793a0999cb5d42ed9208ab333da77c73d52890cbf99517fee61f87fb70b7e",
+    "task_burst": "30af368bf0ab62d389fc9d07ffd9a1b6d9907b95ab92d0da5d85eba58944f389",
+    "thermal_burst_stress": "4da7796a35692eb6947507ec1de6de11629b71b0d274342509e639c1669df5ab"
+  },
+  "scenarios": [
+    "critical",
+    "energy_link_stress",
+    "low_energy",
+    "normal",
+    "poor_link",
+    "task_burst",
+    "thermal_burst_stress"
+  ],
+  "schedulers": [
+    "contact_knapsack",
+    "edf",
+    "greedy",
+    "predictive",
+    "random",
+    "rule"
+  ],
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+  ],
+  "source_tree_clean": true,
+  "workload_seed_protocol": "Each scenario/workload_seed is generated once and reused by every scheduler."
+}
