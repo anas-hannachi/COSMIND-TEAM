@@ -55,7 +55,6 @@ class CommunicationModel:
             finish_s = min(contact.end_s, end_s)
             if finish_s <= start_s:
                 continue
-            span_s = contact.end_s - contact.start_s
             start_bw = contact.bandwidth_at(start_s)
             end_bw = contact.bandwidth_at(finish_s - 1e-12)
             # Mbps * seconds / 8 = MB under the decimal networking convention.
