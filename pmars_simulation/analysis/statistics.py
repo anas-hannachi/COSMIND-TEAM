@@ -60,7 +60,7 @@ def paired_comparisons(
     rows: list[dict],
     *,
     candidate_scheduler: str = "predictive",
-    baselines: tuple[str, ...] = ("greedy", "rule"),
+    baselines: tuple[str, ...] = ("greedy", "rule", "edf", "contact_knapsack"),
     metric: str = "timely_value_retention",
 ) -> list[dict]:
     index = {

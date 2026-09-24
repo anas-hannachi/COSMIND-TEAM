@@ -13,9 +13,11 @@ COLORS = {
     "random": "#94a3b8",
     "rule": "#f59e0b",
     "greedy": "#2563eb",
+    "edf": "#7c3aed",
+    "contact_knapsack": "#0f766e",
     "predictive": "#16a34a",
 }
-SCHEDULERS = ("random", "rule", "greedy", "predictive")
+SCHEDULERS = ("random", "rule", "greedy", "edf", "contact_knapsack", "predictive")
 T95 = {2: 12.706, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447,
        8: 2.365, 9: 2.306, 10: 2.262, 11: 2.228, 12: 2.201, 13: 2.179,
        14: 2.160, 15: 2.145, 16: 2.131, 17: 2.120, 18: 2.110, 19: 2.101,
@@ -47,7 +49,7 @@ def _mean_ci(values: list[float]) -> tuple[float, float]:
 
 def _legend(parts: list[str], *, left: float, y: float, labels: tuple[str, ...], colors: dict[str, str]) -> None:
     for index, label in enumerate(labels):
-        x = left + index * 170
+        x = left + index * 145
         parts.extend([
             f'<rect x="{x}" y="{y}" width="12" height="12" fill="{colors[label]}"/>',
             f'<text x="{x + 18}" y="{y + 11}" font-family="Arial" font-size="12">{html.escape(label)}</text>',
@@ -74,7 +76,9 @@ def _grouped_bar_chart(
     plot_height = height - top - bottom
     plot_width = width - left - right
     group_width = plot_width / max(len(scenarios), 1)
-    bar_width = min(32, group_width / 5)
+    bar_width = min(32, group_width / (len(SCHEDULERS) + 1.5))
+    bar_step = bar_width + 3
+    cluster_width = len(SCHEDULERS) * bar_width + (len(SCHEDULERS) - 1) * 3
     parts = [
         '<rect width="100%" height="100%" fill="white"/>',
         f'<text x="{width / 2}" y="30" text-anchor="middle" font-family="Arial" font-size="18" font-weight="bold">{html.escape(title)}</text>',
@@ -96,7 +100,7 @@ def _grouped_bar_chart(
             key = (scenario, scheduler)
             mean, ci = summaries.get(key, (0.0, 0.0))
             bar_height = plot_height * mean / maximum
-            x = group_x + 10 + scheduler_index * (bar_width + 5)
+            x = group_x + max(3, (group_width - cluster_width) / 2) + scheduler_index * bar_step
             y = top + plot_height - bar_height
             center_x = x + bar_width / 2
             whisker_y = top + plot_height * (1 - min(maximum, mean + ci) / maximum)
@@ -182,7 +186,9 @@ def _outcome_stack(rows: list[dict], output: Path) -> None:
     plot_height = height - top - bottom
     plot_width = width - left - right
     group_width = plot_width / max(len(scenarios), 1)
-    bar_width = min(32, group_width / 5)
+    bar_width = min(32, group_width / (len(SCHEDULERS) + 1.5))
+    bar_step = bar_width + 3
+    cluster_width = len(SCHEDULERS) * bar_width + (len(SCHEDULERS) - 1) * 3
     parts = [
         '<rect width="100%" height="100%" fill="white"/>',
         '<text x="560" y="30" text-anchor="middle" font-family="Arial" font-size="18" font-weight="bold">Mean terminal outcomes over all generated tasks</text>',
@@ -199,7 +205,7 @@ def _outcome_stack(rows: list[dict], output: Path) -> None:
         group_x = left + scenario_index * group_width
         for scheduler_index, scheduler in enumerate(SCHEDULERS):
             group = [row for row in rows if row["scenario"] == scenario and row["scheduler"] == scheduler]
-            x = group_x + 10 + scheduler_index * (bar_width + 5)
+            x = group_x + max(3, (group_width - cluster_width) / 2) + scheduler_index * bar_step
             cumulative = 0.0
             for _label, field, color in outcome_fields:
                 fractions = []
@@ -224,7 +230,7 @@ def _outcome_stack(rows: list[dict], output: Path) -> None:
     outcome_colors = {label: color for label, _field, color in outcome_fields}
     _legend(parts, left=left, y=height - 52, labels=tuple(outcome_colors), colors=outcome_colors)
     parts.append(
-        f'<text x="80" y="{height - 16}" font-family="Arial" font-size="10" fill="#475569">Within each scenario: random, rule, greedy, predictive (left to right).</text>'
+        f'<text x="80" y="{height - 16}" font-family="Arial" font-size="10" fill="#475569">Schedulers: random, rule, greedy, EDF, contact knapsack, predictive.</text>'
     )
     output.write_text(_svg(width, height, "".join(parts)), encoding="utf-8")
 

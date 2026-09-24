@@ -8,11 +8,13 @@ It is a simulator, not a flight implementation and not a Raspberry Pi measuremen
 
 - A SimPy virtual-time satellite environment with finite battery, solar/eclipse cycles, storage, RAM/compute eligibility, thermal evolution, time-varying contact windows, deadlines, and freshness decay.
 - An outcome-complete task ledger. Every generated task ends in exactly one state: timely delivery, late delivery, expiry, rejection at admission, unfinished, or failed.
-- Four reproducible policies: seeded feasible `random`, transparent `rule`, immediate-utility `greedy`, and a bounded one-step-rollout `predictive` heuristic.
-- Five deterministic synthetic scenarios: `normal`, `low_energy`, `poor_link`, `task_burst`, and `critical`.
+- Six reproducible policies: seeded feasible `random`, transparent `rule`, immediate-utility `greedy`, feasibility-aware `edf`, contact-batch `contact_knapsack`, and bounded one-step-rollout `predictive`.
+- Seven deterministic synthetic scenarios, including combined `energy_link_stress` and `thermal_burst_stress` cases.
+- Named physical-model profiles in `profiles/`, with hashes copied into evaluation manifests.
 - A matched-seed experiment runner that exports workload manifests, per-run metrics, per-task outcomes, summaries, paired comparisons, SVG figures, and a simulator-generated lifecycle trace.
 
 The Predictive policy is deliberately described as a heuristic. It scores only routes it can project as deadline-feasible (raw downlink now, process then a feasible downlink, or store until a feasible downlink); it does not claim global optimization or capacity reservation.
+The `contact_knapsack` reference solves an exact 0/1 value-packing problem for the remaining current contact, with transfer durations rounded up to whole seconds. It replans after each transfer and is not a global mission optimizer.
 
 ## Quick start
 
@@ -45,22 +47,23 @@ The same workflow checks for undefined names and unused imports with Ruff before
 
 - `pmars_simulation/core/` - task lifecycle and the discrete-event simulation loop;
 - `pmars_simulation/environment/` - energy, compute, thermal, storage, and radio models;
-- `pmars_simulation/schedulers/` - Random, Rule, Greedy, and Predictive policies;
-- `scenarios/` - five synthetic mission configurations;
+- `pmars_simulation/schedulers/` - six scheduling policies, including EDF and a contact-batch knapsack reference;
+- `scenarios/` - seven synthetic mission configurations;
+- `profiles/` - named, versioned physical-model assumptions used by scenarios;
 - `tests/` - lifecycle, feasibility, determinism, and resource-bound regression tests;
-- `results/evaluation_v1/` - reproducible evaluation inputs, summaries, and generated evidence.
+- `results/evaluation_v1/` and `results/evaluation_v2/` - versioned evaluation inputs, summaries, and generated evidence.
 
-The regression suite covers rejected arrivals, storage release on expiry, late-delivery accounting, terminal-outcome partitioning, resource bounds, deterministic workloads and policies, predictive-route feasibility, and trace generation.
+The regression suite covers lifecycle accounting, resource bounds, deterministic workloads, scheduler selection, named profile resolution, sensitivity sweeps, and trace generation.
 
 ## Reproduce the held-out evaluation
 
 Commit the source first. The runner intentionally refuses a dirty source tree so every artifact identifies an exact commit.
 
 ```bash
-python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v1 --evaluation-version evaluation_v1
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2
 ```
 
-This runs 5 scenarios x 4 policies x 20 common workload seeds = 400 simulations. Development/tuning seeds are 0-9; the checked-in evaluation uses held-out seeds 100-119.
+This runs 7 scenarios x 6 policies x 20 common workload seeds = 840 simulations. Development/tuning seeds are 0-9; report results with the seed range and model-profile hashes from the manifest.
 
 The output directory contains:
 
@@ -71,6 +74,7 @@ The output directory contains:
 - `figures/` - SVG plots generated from the raw runs;
 - `trace/` - one deterministic arrival -> decision -> process/transmit -> outcome example from real simulator events;
 - `manifest.json` - source commit, package versions, scenario hashes, seed protocol, and run metadata.
+- `profiles/` - exact model-profile files referenced by the run, with hashes in the manifest.
 
 ## Sensitivity analysis
 
@@ -80,7 +84,7 @@ After committing source changes, use the one-factor-at-a-time runner to check wh
 python -m pmars_simulation.experiments.sensitivity --output results/sensitivity_v1
 ```
 
-Choose other parameters, scenarios, seed ranges, or multipliers with `--parameters`, `--scenarios`, `--seed-start`, `--seeds`, and `--multipliers`. Supported parameters are `process_power_w`, `transmit_power_w`, `solar_power_w`, `contact_bandwidth`, and `interarrival_s`. The output includes per-run metrics, summary confidence intervals, paired Predictive-versus-baseline comparisons, and a manifest with hashes. Multipliers are sensitivity assumptions, not measured physical values. See [`docs/calibration.md`](docs/calibration.md) before interpreting or replacing them with hardware measurements.
+Choose other parameters, scenarios, seed ranges, or multipliers with `--parameters`, `--scenarios`, `--seed-start`, `--seeds`, and `--multipliers`. Supported parameters include power, contact bandwidth, task interarrival, compute capacity, and thermal rates. The output includes per-run metrics, summary confidence intervals, paired Predictive-versus-baseline comparisons, and a manifest with hashes. Multipliers are sensitivity assumptions, not measured physical values. See [`docs/calibration.md`](docs/calibration.md) before interpreting or replacing them with hardware measurements.
 
 ## Metrics and interpretation
 

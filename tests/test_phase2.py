@@ -16,9 +16,12 @@ from pmars_simulation.environment import (
 )
 from pmars_simulation.experiments.metrics import calculate, task_outcome_rows
 from pmars_simulation.experiments.runner import run
+from pmars_simulation.experiments.sensitivity import _scaled_config, run_sensitivity
 from pmars_simulation.experiments.trace import create_trace
 from pmars_simulation.scenarios import build_simulation, generate_tasks, load_config
 from pmars_simulation.schedulers.predictive_scheduler import PredictiveScheduler
+from pmars_simulation.schedulers.edf_scheduler import EarliestDeadlineFirstScheduler
+from pmars_simulation.schedulers.contact_knapsack_scheduler import ContactKnapsackScheduler
 
 
 class IdleScheduler:
@@ -59,6 +62,8 @@ def task(
     output_size_mb: float = 0.5,
     processing_time_s: float = 1.0,
     memory_mb: float = 64.0,
+    mission_value: float = 10.0,
+    priority: int = 5,
 ) -> Task:
     return Task(
         task_id,
@@ -68,8 +73,8 @@ def task(
         processing_time_s,
         45.0 * processing_time_s,
         output_size_mb,
-        5,
-        10.0,
+        priority,
+        mission_value,
         deadline_s,
         created_at_s,
         0.1,
@@ -215,6 +220,74 @@ def test_repeated_scheduler_run_is_reproducible():
     second = build_simulation("normal", "predictive", 7)
     assert first.run() == second.run()
     assert calculate(first) == calculate(second)
+
+
+def test_named_profiles_configure_compute_and_thermal_models():
+    scenario_config = load_config("thermal_burst_stress")
+    sim = build_simulation("thermal_burst_stress", "predictive", 4)
+    assert scenario_config["model_profile"] == "thermal_stress_v1"
+    assert sim.compute.capacity_units == scenario_config["compute"]["capacity_units"]
+    assert sim.compute.throttled_capacity_fraction == 0.4
+    assert sim.thermal.heating_c_per_s == 0.14
+    assert sim.thermal.throttle_at_fraction == 0.8
+
+
+def test_sensitivity_scales_compute_and_thermal_profile_values():
+    compute = _scaled_config("normal", "compute_capacity_units", 1.2)
+    thermal = _scaled_config("normal", "thermal_heating_c_per_s", 1.5)
+    assert compute["compute"]["capacity_units"] == pytest.approx(120.0)
+    assert thermal["thermal"]["heating_c_per_s"] == pytest.approx(0.12)
+    with pytest.raises(ValueError, match="finite and positive"):
+        _scaled_config("normal", "process_power_w", float("nan"))
+
+
+def test_edf_picks_earliest_deadline_feasible_task():
+    earlier = task("earlier", deadline_s=12.0)
+    later = task("later", deadline_s=20.0)
+    sim = simulation(
+        [later, earlier],
+        contacts=(ContactWindow(0, 40, 1, 1, 100),),
+        scheduler=EarliestDeadlineFirstScheduler(),
+        mission_duration_s=0.0,
+    )
+    sim._arrive_due()
+    decision = sim.scheduler.decide(sim.snapshot(), sim.queue.ordered(0.0), sim)
+    assert decision.task_id == "earlier"
+    assert decision.action == Action.TRANSMIT
+
+
+def test_contact_knapsack_beats_single_largest_payload_value():
+    small_a = task("small-a", deadline_s=30.0, input_size_mb=1.0, mission_value=7.0)
+    small_b = task("small-b", deadline_s=30.0, input_size_mb=1.0, mission_value=7.0)
+    large = task("large", deadline_s=30.0, input_size_mb=2.0, mission_value=12.0)
+    sim = simulation(
+        [small_a, small_b, large],
+        contacts=(ContactWindow(0, 18, 1, 1, 100),),
+        scheduler=ContactKnapsackScheduler(),
+        mission_duration_s=0.0,
+    )
+    sim._arrive_due()
+    decision = sim.scheduler.decide(sim.snapshot(), sim.queue.ordered(0.0), sim)
+    assert decision.task_id in {"small-a", "small-b"}
+    assert "packed 2 payloads" in decision.rationale
+    assert "value=14.0" in decision.rationale
+
+
+def test_sensitivity_runner_exports_matched_policy_sweep(tmp_path):
+    rows = run_sensitivity(
+        parameters=("thermal_heating_c_per_s",),
+        multipliers=(1.0,),
+        scenarios=("normal",),
+        schedulers=("greedy", "predictive"),
+        seeds=[2],
+        output=tmp_path,
+        allow_dirty=True,
+    )
+    assert len(rows) == 2
+    assert rows[0]["workload_sha256"] == rows[1]["workload_sha256"]
+    assert (tmp_path / "raw_runs.csv").exists()
+    assert (tmp_path / "paired_comparisons.csv").exists()
+    assert (tmp_path / "manifest.json").exists()
 
 
 def test_predictive_can_select_lower_edf_task_when_first_has_no_feasible_route():

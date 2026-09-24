@@ -7,9 +7,10 @@ class ComputeModel:
     max_frequency_hz: float = 2.5e9
     ram_total_mb: float = 4096
     capacity_units: float = 100.0
+    throttled_capacity_fraction: float = 0.5
 
     def available_fraction(self, thermal: ThermalModel) -> float:
-        return 0.5 if thermal.throttling else 1.0
+        return self.throttled_capacity_fraction if thermal.throttling else 1.0
 
     def available_capacity_units(self, thermal: ThermalModel) -> float:
         return self.capacity_units * self.available_fraction(thermal)

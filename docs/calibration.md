@@ -18,11 +18,11 @@ The companion `calibration_measurements.csv` file is an empty column template. E
 
 ## Update model parameters
 
-The scenario YAML files currently configure workload generation, energy values, storage capacity, solar/eclipse timing, and contact windows. Compute and thermal model coefficients are currently defaults in Python. A calibrated profile should therefore:
+Named model profiles live in `profiles/`; scenario files select one with `model_profile` and can override profile values for scenario-specific stress cases. Profiles contain the energy, compute, and thermal assumptions; scenarios contain workload and contact conditions. A calibrated profile should:
 
 1. Keep the raw measurement file and the device metadata with the experiment artifacts.
 2. Add a named model profile with the source measurement file hash and derived parameter values.
-3. Extend `build_simulation` to load compute and thermal coefficients from that profile before using the profile in a benchmark.
+3. Add the measured compute and thermal coefficients to the profile and verify that the scenario resolves to those values.
 4. Keep the existing synthetic scenarios unchanged so the published `evaluation_v1` can still be reproduced.
 
 Never overwrite the frozen `evaluation_v1` artifacts with recalibrated results. Use a new evaluation version and record the source commit, profile hash, workload seeds, and parameter derivation method in its manifest.
@@ -37,4 +37,8 @@ Before hardware data is available, measure how conclusions depend on assumptions
 4. Save each run matrix separately and compare paired per-seed differences across the parameter values.
 5. Report when a scheduler ranking changes, and include cases where Predictive loses to a baseline.
 
-The `pmars_simulation.experiments.sensitivity` runner supports one-factor sweeps for processing/transmit/solar power, contact bandwidth, and task interarrival time. It writes raw runs, confidence-interval summaries, paired Predictive comparisons, and a manifest. Compute, thermal, and memory sensitivities still require configurable model-profile support before they can be swept by that runner.
+The `pmars_simulation.experiments.sensitivity` runner supports one-factor sweeps for processing/transmit/solar power, contact bandwidth, task interarrival time, compute capacity, and thermal rates. It writes raw runs, confidence-interval summaries, paired Predictive comparisons, and a manifest with profile hashes. Memory and contact-schedule timing sweeps remain future extensions.
+
+## Combined stress cases
+
+`energy_link_stress` combines a low-energy setting with sparse, low-bandwidth, high-latency contacts. `thermal_burst_stress` combines burst arrivals with an explicitly harsher thermal profile. These are designed synthetic stress cases; they are not estimates of a particular orbit or hardware board.

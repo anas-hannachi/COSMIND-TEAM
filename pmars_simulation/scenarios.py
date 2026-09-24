@@ -20,18 +20,51 @@ from .environment import (
     StorageModel,
     ThermalModel,
 )
-from .schedulers import GreedyScheduler, PredictiveScheduler, RandomScheduler, RuleScheduler
+from .schedulers import (
+    ContactKnapsackScheduler,
+    EarliestDeadlineFirstScheduler,
+    GreedyScheduler,
+    PredictiveScheduler,
+    RandomScheduler,
+    RuleScheduler,
+)
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SCENARIO_NAMES = ("normal", "low_energy", "poor_link", "task_burst", "critical")
+SCENARIO_NAMES = (
+    "normal",
+    "low_energy",
+    "poor_link",
+    "task_burst",
+    "critical",
+    "energy_link_stress",
+    "thermal_burst_stress",
+)
 
 
 def load_config(name: str) -> dict:
     if name not in SCENARIO_NAMES:
         raise ValueError(f"unknown scenario: {name}")
     with (ROOT / "scenarios" / f"{name}.yaml").open(encoding="utf-8") as handle:
-        return yaml.safe_load(handle)
+        scenario = yaml.safe_load(handle)
+    profile_name = scenario.get("model_profile", "synthetic_v1")
+    profile_path = ROOT / "profiles" / f"{profile_name}.yaml"
+    if not profile_path.is_file():
+        raise ValueError(f"unknown model profile '{profile_name}' for scenario '{name}'")
+    with profile_path.open(encoding="utf-8") as handle:
+        profile = yaml.safe_load(handle)
+    merged = {**profile, **scenario}
+    for section in ("energy", "compute", "thermal"):
+        merged[section] = {**profile.get(section, {}), **scenario.get(section, {})}
+    merged["model_profile"] = profile_name
+    return merged
+
+
+def model_profile_sha256(profile_name: str) -> str:
+    profile_path = ROOT / "profiles" / f"{profile_name}.yaml"
+    if not profile_path.is_file():
+        raise ValueError(f"unknown model profile: {profile_name}")
+    return hashlib.sha256(profile_path.read_bytes()).hexdigest()
 
 
 def config_sha256(config: dict) -> str:
@@ -101,6 +134,8 @@ def make_scheduler(name: str, policy_seed: int):
         "random": RandomScheduler(policy_seed),
         "rule": RuleScheduler(),
         "greedy": GreedyScheduler(),
+        "edf": EarliestDeadlineFirstScheduler(),
+        "contact_knapsack": ContactKnapsackScheduler(),
         "predictive": PredictiveScheduler(),
     }
     try:
@@ -123,11 +158,16 @@ def build_simulation(
     contacts = tuple(ContactWindow(**contact) for contact in config["contacts"])
     policy_seed = policy_seed if policy_seed is not None else seed + 100_000
     workload = tasks if tasks is not None else generate_tasks(config, seed)
+    compute_config = {
+        "ram_total_mb": config.get("memory_mb", 4096.0),
+        **config.get("compute", {}),
+    }
+    memory_available_mb = config.get("memory_mb", compute_config["ram_total_mb"])
     return Simulation(
         satellite=Satellite(
             energy_j=energy_config["initial_energy_j"],
             battery_capacity_j=energy_config["capacity_j"],
-            memory_available_mb=config.get("memory_mb", 4096.0),
+            memory_available_mb=memory_available_mb,
             storage_total_mb=config["storage_mb"],
         ),
         energy=EnergyModel(**{
@@ -135,8 +175,8 @@ def build_simulation(
             for key, value in energy_config.items()
             if key != "initial_energy_j"
         }),
-        compute=ComputeModel(ram_total_mb=config.get("memory_mb", 4096.0)),
-        thermal=ThermalModel(),
+        compute=ComputeModel(**compute_config),
+        thermal=ThermalModel(**config.get("thermal", {})),
         storage=StorageModel(config["storage_mb"]),
         communication=CommunicationModel(contacts),
         scheduler=make_scheduler(scheduler_name, policy_seed),

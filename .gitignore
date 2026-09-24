@@ -12,4 +12,6 @@ venv/
 results/*
 !results/evaluation_v1/
 !results/evaluation_v1/**
+!results/evaluation_v2/
+!results/evaluation_v2/**
 *.egg-info/

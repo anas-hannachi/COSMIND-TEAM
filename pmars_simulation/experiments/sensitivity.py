@@ -15,6 +15,7 @@ from ..scenarios import (
     config_sha256,
     generate_tasks,
     load_config,
+    model_profile_sha256,
     workload_sha256,
 )
 from .metrics import calculate
@@ -27,6 +28,11 @@ PARAMETERS = (
     "solar_power_w",
     "contact_bandwidth",
     "interarrival_s",
+    "compute_capacity_units",
+    "throttled_capacity_fraction",
+    "thermal_heating_c_per_s",
+    "thermal_cooling_c_per_s",
+    "throttle_at_fraction",
 )
 
 
@@ -42,6 +48,18 @@ def _scaled_config(name: str, parameter: str, multiplier: float) -> dict:
             contact["bandwidth_end_mbps"] *= multiplier
     elif parameter == "interarrival_s":
         config["workload"][parameter] = [value * multiplier for value in config["workload"][parameter]]
+    elif parameter == "compute_capacity_units":
+        config["compute"]["capacity_units"] *= multiplier
+    elif parameter == "throttled_capacity_fraction":
+        config["compute"]["throttled_capacity_fraction"] *= multiplier
+        config["compute"]["throttled_capacity_fraction"] = min(
+            config["compute"]["throttled_capacity_fraction"], 1.0,
+        )
+    elif parameter in {"thermal_heating_c_per_s", "thermal_cooling_c_per_s", "throttle_at_fraction"}:
+        key = parameter.removeprefix("thermal_")
+        config["thermal"][key] *= multiplier
+        if key == "throttle_at_fraction":
+            config["thermal"][key] = min(config["thermal"][key], 1.0)
     else:
         raise ValueError(f"unknown sensitivity parameter: {parameter}")
     return config
@@ -107,6 +125,8 @@ def run_sensitivity(
                             "scenario": scenario,
                             "parameter": parameter,
                             "multiplier": multiplier,
+                            "model_profile": config["model_profile"],
+                            "model_profile_sha256": model_profile_sha256(config["model_profile"]),
                             "scheduler": scheduler,
                             "workload_seed": seed,
                             "policy_seed": policy_seed,
@@ -135,7 +155,10 @@ def run_sensitivity(
         (row["scenario"], row["parameter"], row["multiplier"], row["scheduler"], row["workload_seed"]): row
         for row in rows
     }
-    baselines = tuple(name for name in ("greedy", "rule") if name in schedulers)
+    baselines = tuple(
+        name for name in ("greedy", "rule", "edf", "contact_knapsack")
+        if name in schedulers
+    )
     if "predictive" in schedulers:
         for scenario in scenarios:
             for parameter in parameters:
@@ -174,6 +197,10 @@ def run_sensitivity(
         "scenarios": list(scenarios),
         "schedulers": list(schedulers),
         "parameters": list(parameters),
+        "model_profiles": {
+            profile: model_profile_sha256(profile)
+            for profile in sorted({load_config(scenario)["model_profile"] for scenario in scenarios})
+        },
         "multipliers": list(multipliers),
         "seeds": seed_list,
         "run_count": len(rows),

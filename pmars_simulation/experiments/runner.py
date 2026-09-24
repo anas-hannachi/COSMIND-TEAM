@@ -21,13 +21,21 @@ from ..scenarios import (
     config_sha256,
     generate_tasks,
     load_config,
+    model_profile_sha256,
     task_manifest_rows,
     workload_sha256,
 )
 from .metrics import calculate, task_outcome_rows
 
 
-DEFAULT_SCHEDULERS = ("random", "rule", "greedy", "predictive")
+DEFAULT_SCHEDULERS = (
+    "random",
+    "rule",
+    "greedy",
+    "edf",
+    "contact_knapsack",
+    "predictive",
+)
 
 
 def _git_sha() -> str:
@@ -100,6 +108,10 @@ def _metadata(
         "policy_seed_protocol": "RandomScheduler uses policy_seed = workload_seed + 100000; other schedulers are deterministic.",
         "seeds": seeds,
         "scenarios": list(scenarios),
+        "model_profiles": {
+            profile: model_profile_sha256(profile)
+            for profile in sorted({load_config(scenario)["model_profile"] for scenario in scenarios})
+        },
         "schedulers": list(schedulers),
         "primary_metric": "timely_value_retention",
         "outcome_partition": "generated = timely + late + expired + rejected + unfinished + failed",
@@ -126,6 +138,7 @@ def _write_evaluation_readme(
         "- `raw_runs.csv`: one aggregate row per scenario, scheduler, and workload seed.\n"
         "- `task_outcomes.csv`: one terminal-lifecycle audit row per generated task.\n"
         "- `workload_manifest.csv` and `workloads/`: fixed task inputs and SHA-256 hashes.\n"
+        "- `profiles/`: exact physical-model assumptions and their hashes.\n"
         "- `summaries/`: mean/95% t-interval summaries and matched-seed Predictive comparisons.\n"
         "- `figures/`: SVG figures generated from `raw_runs.csv`.\n"
         "- `trace/`: a deterministic illustrative lifecycle trace generated from simulator events.\n\n"
@@ -157,6 +170,7 @@ def run(
     output_path.mkdir(parents=True, exist_ok=True)
     (output_path / "workloads").mkdir(exist_ok=True)
     (output_path / "configs").mkdir(exist_ok=True)
+    (output_path / "profiles").mkdir(exist_ok=True)
     seed_list = list(seeds)
     rows = _read_csv(output_path / "raw_runs.csv") if append else []
     outcomes = _read_csv(output_path / "task_outcomes.csv") if append else []
@@ -177,6 +191,9 @@ def run(
         config = load_config(scenario)
         scenario_hash = config_sha256(config)
         shutil.copy2(ROOT / "scenarios" / f"{scenario}.yaml", output_path / "configs" / f"{scenario}.yaml")
+        profile_name = config["model_profile"]
+        profile_path = ROOT / "profiles" / f"{profile_name}.yaml"
+        shutil.copy2(profile_path, output_path / "profiles" / profile_path.name)
         for workload_seed in seed_list:
             tasks = generate_tasks(config, workload_seed)
             task_hash = workload_sha256(tasks)
@@ -242,6 +259,10 @@ def run(
     )
     manifest["scenario_configs"] = {
         scenario: config_sha256(load_config(scenario)) for scenario in all_scenarios
+    }
+    manifest["model_profiles"] = {
+        profile: model_profile_sha256(profile)
+        for profile in sorted({load_config(scenario)["model_profile"] for scenario in all_scenarios})
     }
     manifest["run_count"] = len(rows)
     with (output_path / "manifest.json").open("w", encoding="utf-8") as handle:

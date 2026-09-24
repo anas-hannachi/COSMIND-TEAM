@@ -1,4 +1,5 @@
 mission_duration_s: 3600
+model_profile: synthetic_v1
 sunlight_s: 600
 eclipse_s: 600
 storage_mb: 2000
