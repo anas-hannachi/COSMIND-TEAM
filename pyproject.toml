@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["simpy==4.1.2", "PyYAML==6.0.3"]
 
 [project.optional-dependencies]
-dev = ["pytest==9.1.1"]
+dev = ["pytest==9.1.1", "ruff==0.16.8"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

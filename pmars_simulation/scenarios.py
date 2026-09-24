@@ -116,8 +116,9 @@ def build_simulation(
     *,
     policy_seed: int | None = None,
     tasks: list[Task] | None = None,
+    config_override: dict | None = None,
 ) -> Simulation:
-    config = load_config(name)
+    config = config_override if config_override is not None else load_config(name)
     energy_config = config["energy"]
     contacts = tuple(ContactWindow(**contact) for contact in config["contacts"])
     policy_seed = policy_seed if policy_seed is not None else seed + 100_000
