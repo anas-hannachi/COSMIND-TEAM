@@ -41,9 +41,17 @@ def _git_sha() -> str:
 
 def _git_is_dirty() -> bool:
     try:
-        return bool(subprocess.check_output(
+        status_lines = subprocess.check_output(
             ["git", "status", "--porcelain"], cwd=ROOT, text=True,
-        ).strip())
+        ).splitlines()
+        # Generated evaluation artifacts intentionally change while a sharded
+        # run is being assembled. They are not source changes and must not
+        # prevent a later shard from recording the same frozen commit.
+        for line in status_lines:
+            path = line[3:].replace("\\", "/")
+            if not path.startswith("results/"):
+                return True
+        return False
     except (OSError, subprocess.CalledProcessError):
         return True
 
@@ -57,6 +65,13 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _read_csv(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    with path.open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
 
 
 def _metadata(
@@ -128,6 +143,7 @@ def run(
     output: str | Path = "results/evaluation",
     evaluation_version: str = "development",
     allow_dirty: bool = False,
+    append: bool = False,
 ) -> list[dict]:
     """Run a matched scheduler/scenario/seed matrix and write evidence files."""
     source_tree_dirty = _git_is_dirty()
@@ -142,9 +158,20 @@ def run(
     (output_path / "workloads").mkdir(exist_ok=True)
     (output_path / "configs").mkdir(exist_ok=True)
     seed_list = list(seeds)
-    rows: list[dict] = []
-    outcomes: list[dict] = []
-    workload_manifest: list[dict] = []
+    rows = _read_csv(output_path / "raw_runs.csv") if append else []
+    outcomes = _read_csv(output_path / "task_outcomes.csv") if append else []
+    workload_manifest = _read_csv(output_path / "workload_manifest.csv") if append else []
+    for row in rows:
+        if row.get("evaluation_version") != evaluation_version or row.get("code_commit_sha") != code_commit_sha:
+            raise RuntimeError("cannot append a different evaluation version or source commit")
+    existing_run_keys = {
+        (row["scenario"], row["scheduler"], int(row["workload_seed"]))
+        for row in rows
+    }
+    existing_workload_keys = {
+        (row["scenario"], int(row["workload_seed"]))
+        for row in workload_manifest
+    }
 
     for scenario in scenarios:
         config = load_config(scenario)
@@ -153,16 +180,22 @@ def run(
         for workload_seed in seed_list:
             tasks = generate_tasks(config, workload_seed)
             task_hash = workload_sha256(tasks)
-            workload_manifest.append({
-                "scenario": scenario,
-                "workload_seed": workload_seed,
-                "config_sha256": scenario_hash,
-                "workload_sha256": task_hash,
-                "generated_tasks": len(tasks),
-            })
+            workload_key = (scenario, workload_seed)
+            if workload_key not in existing_workload_keys:
+                workload_manifest.append({
+                    "scenario": scenario,
+                    "workload_seed": workload_seed,
+                    "config_sha256": scenario_hash,
+                    "workload_sha256": task_hash,
+                    "generated_tasks": len(tasks),
+                })
+                existing_workload_keys.add(workload_key)
             with (output_path / "workloads" / f"{scenario}_seed_{workload_seed}.json").open("w", encoding="utf-8") as handle:
                 json.dump(task_manifest_rows(tasks), handle, indent=2, sort_keys=True)
             for scheduler in schedulers:
+                run_key = (scenario, scheduler, workload_seed)
+                if run_key in existing_run_keys:
+                    raise RuntimeError(f"duplicate run requested while appending: {run_key}")
                 policy_seed = workload_seed + 100_000
                 sim = build_simulation(
                     scenario,
@@ -185,6 +218,7 @@ def run(
                 }
                 rows.append({**identity, **metrics})
                 outcomes.extend({**identity, **outcome} for outcome in task_outcome_rows(sim))
+                existing_run_keys.add(run_key)
 
     _write_csv(output_path / "raw_runs.csv", rows)
     _write_csv(output_path / "task_outcomes.csv", outcomes)
@@ -195,16 +229,19 @@ def run(
     write_csv(output_path / "summaries" / "paired_predictive_vs_baselines.csv", paired)
     generate_plots(str(output_path / "raw_runs.csv"), str(output_path / "figures"))
 
+    all_scenarios = tuple(sorted({row["scenario"] for row in rows}))
+    all_schedulers = tuple(sorted({row["scheduler"] for row in rows}))
+    all_seeds = sorted({int(row["workload_seed"]) for row in rows})
     manifest = _metadata(
         evaluation_version,
-        seed_list,
-        scenarios,
-        schedulers,
+        all_seeds,
+        all_scenarios,
+        all_schedulers,
         code_commit_sha,
         not source_tree_dirty,
     )
     manifest["scenario_configs"] = {
-        scenario: config_sha256(load_config(scenario)) for scenario in scenarios
+        scenario: config_sha256(load_config(scenario)) for scenario in all_scenarios
     }
     manifest["run_count"] = len(rows)
     with (output_path / "manifest.json").open("w", encoding="utf-8") as handle:
@@ -213,7 +250,7 @@ def run(
         output_path,
         evaluation_version=evaluation_version,
         code_commit_sha=code_commit_sha,
-        seeds=seed_list,
+        seeds=all_seeds,
         source_tree_clean=not source_tree_dirty,
     )
     if "normal" in scenarios and "predictive" in schedulers and seed_list:
@@ -229,7 +266,7 @@ def run(
         "python -m pytest\n"
         f"python -m pmars_simulation.experiments.runner --seed-start {seed_list[0] if seed_list else 0} "
         f"--seeds {len(seed_list)} --output {output_path.as_posix()} "
-        f"--evaluation-version {evaluation_version}\n",
+        f"--evaluation-version {evaluation_version}{' --append' if append else ''}\n",
         encoding="utf-8",
     )
     return rows
@@ -244,6 +281,7 @@ def main() -> None:
     parser.add_argument("--scenarios", nargs="*", choices=SCENARIO_NAMES, default=SCENARIO_NAMES)
     parser.add_argument("--schedulers", nargs="*", choices=DEFAULT_SCHEDULERS, default=DEFAULT_SCHEDULERS)
     parser.add_argument("--allow-dirty", action="store_true", help="Allow disposable development output from uncommitted source.")
+    parser.add_argument("--append", action="store_true", help="Append non-overlapping scenario/policy/seed runs to an existing artifact.")
     args = parser.parse_args()
     if args.seeds <= 0:
         parser.error("--seeds must be positive")
@@ -254,6 +292,7 @@ def main() -> None:
         output=args.output,
         evaluation_version=args.evaluation_version,
         allow_dirty=args.allow_dirty,
+        append=args.append,
     )
 
 

@@ -281,3 +281,27 @@ def test_runner_exports_matched_workloads_and_trace(tmp_path):
     assert (tmp_path / "raw_runs.csv").exists()
     assert (tmp_path / "figures" / "terminal_outcomes.svg").exists()
     assert (tmp_path / "trace" / "trace_demo.csv").exists()
+
+
+def test_runner_can_append_non_overlapping_shards(tmp_path):
+    first = run(
+        scenarios=("normal",),
+        schedulers=("greedy",),
+        seeds=[2],
+        output=tmp_path,
+        evaluation_version="test-append",
+        allow_dirty=True,
+    )
+    second = run(
+        scenarios=("poor_link",),
+        schedulers=("predictive",),
+        seeds=[2],
+        output=tmp_path,
+        evaluation_version="test-append",
+        allow_dirty=True,
+        append=True,
+    )
+    assert len(first) == 1
+    assert len(second) == 2
+    assert (tmp_path / "configs" / "normal.yaml").exists()
+    assert (tmp_path / "configs" / "poor_link.yaml").exists()
