@@ -1,0 +1,15 @@
+{
+  "completed_at_s": 105.57559574231226,
+  "created_at_s": 30.440279562842562,
+  "deadline_s": 369.29430253095484,
+  "event_count": 34,
+  "processed_at_s": 32.44027956284256,
+  "scenario": "normal",
+  "scheduler": "predictive",
+  "storage_wait_cycles": 14,
+  "task_id": "100-1",
+  "task_type": "telemetry",
+  "terminal_status": "completed",
+  "workload_seed": 100,
+  "workload_sha256": "8f8016fe5ea3422ea5fc1c886794b38217b6c00ed045bbbdc9320bc69ff54e87"
+}

@@ -1,0 +1,6 @@
+python -m pytest
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v1 --evaluation-version evaluation_v1 --scenarios normal --schedulers random rule greedy predictive
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v1 --evaluation-version evaluation_v1 --scenarios low_energy --schedulers random rule greedy predictive --append
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v1 --evaluation-version evaluation_v1 --scenarios poor_link --schedulers random rule greedy predictive --append
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v1 --evaluation-version evaluation_v1 --scenarios task_burst --schedulers random rule greedy predictive --append
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v1 --evaluation-version evaluation_v1 --scenarios critical --schedulers random rule greedy predictive --append
