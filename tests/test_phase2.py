@@ -228,8 +228,14 @@ def test_named_profiles_configure_compute_and_thermal_models():
     assert scenario_config["model_profile"] == "thermal_stress_v1"
     assert sim.compute.capacity_units == scenario_config["compute"]["capacity_units"]
     assert sim.compute.throttled_capacity_fraction == 0.4
-    assert sim.thermal.heating_c_per_s == 0.14
-    assert sim.thermal.throttle_at_fraction == 0.8
+    assert sim.thermal.heating_c_per_s == 0.3
+    assert sim.thermal.throttle_at_fraction == 0.6
+
+
+def test_thermal_stress_scenario_reaches_its_throttle_threshold():
+    sim = build_simulation("thermal_burst_stress", "rule", 100)
+    sim.run(sim.mission_duration_s)
+    assert sim.max_temperature_c >= sim.thermal.max_temp_c * sim.thermal.throttle_at_fraction
 
 
 def test_sensitivity_scales_compute_and_thermal_profile_values():
