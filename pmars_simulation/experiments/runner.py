@@ -262,13 +262,16 @@ def run(
             seed=seed_list[0],
             output=output_path / "trace",
         )
-    (output_path / "commands.txt").write_text(
-        "python -m pytest\n"
+    command = (
         f"python -m pmars_simulation.experiments.runner --seed-start {seed_list[0] if seed_list else 0} "
         f"--seeds {len(seed_list)} --output {output_path.as_posix()} "
-        f"--evaluation-version {evaluation_version}{' --append' if append else ''}\n",
-        encoding="utf-8",
+        f"--evaluation-version {evaluation_version} "
+        f"--scenarios {' '.join(scenarios)} --schedulers {' '.join(schedulers)}"
+        f"{' --append' if append else ''}\n"
     )
+    commands_path = output_path / "commands.txt"
+    previous_commands = commands_path.read_text(encoding="utf-8") if append and commands_path.exists() else "python -m pytest\n"
+    commands_path.write_text(previous_commands + command, encoding="utf-8")
     return rows
 
 

@@ -305,3 +305,6 @@ def test_runner_can_append_non_overlapping_shards(tmp_path):
     assert len(second) == 2
     assert (tmp_path / "configs" / "normal.yaml").exists()
     assert (tmp_path / "configs" / "poor_link.yaml").exists()
+    commands = (tmp_path / "commands.txt").read_text(encoding="utf-8")
+    assert "--scenarios normal" in commands
+    assert "--scenarios poor_link" in commands
