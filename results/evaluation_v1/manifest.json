@@ -1,0 +1,60 @@
+{
+  "code_commit_sha": "e6ac49de98e5173d09bd6655febf86ba4733a85d",
+  "created_utc": "2026-09-24T17:30:55.899281+00:00",
+  "dependencies": {
+    "PyYAML": "6.0.3",
+    "simpy": "4.1.2"
+  },
+  "drain_policy": "Arrivals stop at scenario mission_duration_s; scheduling drains through the latest generated task deadline.",
+  "evaluation_version": "evaluation_v1",
+  "outcome_partition": "generated = timely + late + expired + rejected + unfinished + failed",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "policy_seed_protocol": "RandomScheduler uses policy_seed = workload_seed + 100000; other schedulers are deterministic.",
+  "primary_metric": "timely_value_retention",
+  "python_version": "3.14.0 (tags/v3.14.0:ebf955d, Oct  7 2025, 10:15:03) [MSC v.1944 64 bit (AMD64)]",
+  "run_count": 400,
+  "scenario_configs": {
+    "critical": "85c8c83455325040a53c5edd40c75084d20f77285fb994bb7f66b5cf23d93a3a",
+    "low_energy": "440613b8edf3d9aa3cca00fad54da6c93b62f3ecd5656a989b801e8364b580d7",
+    "normal": "64aeaf090a5ecb75b40dd9f44f52ae5030b69166f1b47ac47d4a4a5d6007b41d",
+    "poor_link": "332685ea971b71bf78c03a5e9397358b37ec00af8295c34a287ad5816bf2628d",
+    "task_burst": "7e3ce2777f3cdf5bd1309335d459bc39bc0a9a04a6f5f58e09962c480a68af90"
+  },
+  "scenarios": [
+    "critical",
+    "low_energy",
+    "normal",
+    "poor_link",
+    "task_burst"
+  ],
+  "schedulers": [
+    "greedy",
+    "predictive",
+    "random",
+    "rule"
+  ],
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+  ],
+  "source_tree_clean": true,
+  "workload_seed_protocol": "Each scenario/workload_seed is generated once and reused by every scheduler."
+}

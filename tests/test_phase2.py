@@ -1,29 +1,310 @@
-from pmars_simulation.actions import Action
-from pmars_simulation.core.task import Task
-from pmars_simulation.environment.communication import CommunicationModel, ContactWindow
-from pmars_simulation.scenarios import build_simulation
+from __future__ import annotations
+
+import pytest
+
+from pmars_simulation.actions import Action, Decision
+from pmars_simulation.core.satellite import Satellite
+from pmars_simulation.core.simulation import Simulation
+from pmars_simulation.core.task import Task, TaskStatus
+from pmars_simulation.environment import (
+    CommunicationModel,
+    ComputeModel,
+    ContactWindow,
+    EnergyModel,
+    StorageModel,
+    ThermalModel,
+)
+from pmars_simulation.experiments.metrics import calculate, task_outcome_rows
+from pmars_simulation.experiments.runner import run
+from pmars_simulation.experiments.trace import create_trace
+from pmars_simulation.scenarios import build_simulation, generate_tasks, load_config
+from pmars_simulation.schedulers.predictive_scheduler import PredictiveScheduler
+
+
+class IdleScheduler:
+    name = "idle"
+
+    def decide(self, state, tasks, simulation):
+        return Decision(Action.IDLE, rationale="test idle")
+
+
+class ProcessThenIdleScheduler:
+    name = "process_then_idle"
+
+    def decide(self, state, tasks, simulation):
+        for record in tasks:
+            if record.status != TaskStatus.PROCESSED:
+                return Decision(Action.PROCESS, record.task.id, "test process")
+        return Decision(Action.IDLE, rationale="test idle after processing")
+
+
+class ProcessNamedThenIdleScheduler:
+    name = "process_named_then_idle"
+
+    def __init__(self, task_id: str) -> None:
+        self.task_id = task_id
+
+    def decide(self, state, tasks, simulation):
+        if simulation.queue.get(self.task_id) is not None:
+            return Decision(Action.PROCESS, self.task_id, "test named process")
+        return Decision(Action.IDLE, rationale="test idle")
+
+
+def task(
+    task_id: str,
+    *,
+    created_at_s: float = 0.0,
+    deadline_s: float = 10.0,
+    input_size_mb: float = 1.0,
+    output_size_mb: float = 0.5,
+    processing_time_s: float = 1.0,
+    memory_mb: float = 64.0,
+) -> Task:
+    return Task(
+        task_id,
+        "test",
+        input_size_mb,
+        1.0,
+        processing_time_s,
+        45.0 * processing_time_s,
+        output_size_mb,
+        5,
+        10.0,
+        deadline_s,
+        created_at_s,
+        0.1,
+        memory_mb,
+    )
+
+
+def simulation(tasks, *, storage_mb=10.0, contacts=(), scheduler=None, mission_duration_s=1.0) -> Simulation:
+    return Simulation(
+        satellite=Satellite(energy_j=8_000.0, battery_capacity_j=8_000.0, memory_available_mb=4_096.0, storage_total_mb=storage_mb),
+        energy=EnergyModel(capacity_j=8_000.0, idle_power_w=1.0, process_power_w=45.0, transmit_power_w=80.0, store_power_w=1.0, solar_power_w=0.0),
+        compute=ComputeModel(),
+        thermal=ThermalModel(),
+        storage=StorageModel(storage_mb),
+        communication=CommunicationModel(tuple(contacts)),
+        scheduler=scheduler or IdleScheduler(),
+        task_arrivals=list(tasks),
+        mission_duration_s=mission_duration_s,
+        sunlight_period_s=0.0,
+        eclipse_period_s=1.0,
+    )
+
 
 def test_task_value_decays_and_validates():
-    t=Task("a","science",1,1,2,3,.5,1,10,30,0,.1)
-    assert t.value_at(10) < t.mission_value
+    item = task("a", deadline_s=30.0)
+    assert item.value_at(60.0) < item.mission_value
+
 
 def test_communication_rejects_contact_overrun():
-    c=CommunicationModel((ContactWindow(10,20,1,1,100),))
-    assert c.feasible(1,19) is False
-    assert c.transfer_time(1,10) == 8.1
+    communication = CommunicationModel((ContactWindow(10, 20, 1, 1, 100),))
+    assert communication.feasible(1, 19) is False
+    assert communication.transfer_time(1, 10) == 8.1
 
-def test_three_actions_change_state():
-    sim=build_simulation("normal","rule",1)
-    sim.run(250)
-    actions={row["action"] for row in sim.history}
-    assert Action.STORE.value in actions
-    assert sim.satellite.time_s >= 250
-    assert sim.energy_consumed_j > 0
 
-def test_seed_reproducibility():
-    a=build_simulation("normal","predictive",7); b=build_simulation("normal","predictive",7)
-    assert a.run(300) == b.run(300)
+def test_rejected_arrival_stays_in_generated_denominator():
+    sim = simulation([task("too-large", input_size_mb=2.0)], storage_mb=1.0)
+    sim.run()
+    metrics = calculate(sim)
+    assert metrics["tasks_generated"] == 1
+    assert metrics["tasks_rejected"] == 1
+    assert metrics["outcome_partition_count"] == 1
+    assert sim.queue.records["too-large"].status == TaskStatus.REJECTED
 
-def test_all_scenarios_run():
-    for name in ("normal","low_energy","poor_link","task_burst","critical"):
-        sim=build_simulation(name,"greedy",3); assert sim.run(100)
+
+def test_raw_expiry_releases_storage():
+    sim = simulation([task("raw", deadline_s=1.0)], storage_mb=2.0)
+    sim.run()
+    assert sim.queue.records["raw"].status == TaskStatus.EXPIRED
+    assert sim.satellite.storage_used_mb == 0.0
+
+
+def test_processed_expiry_releases_processed_payload():
+    sim = simulation(
+        [task("processed", deadline_s=5.0, input_size_mb=2.0, output_size_mb=0.5)],
+        storage_mb=3.0,
+        scheduler=ProcessThenIdleScheduler(),
+    )
+    sim.run()
+    record = sim.queue.records["processed"]
+    assert record.processed_at_s is not None
+    assert record.status == TaskStatus.EXPIRED
+    assert sim.satellite.storage_used_mb == 0.0
+
+
+def test_late_delivery_is_not_credited_as_timely():
+    late_task = task("late", deadline_s=2.0, input_size_mb=1.0)
+    horizon_task = task("horizon", deadline_s=10.0, input_size_mb=20.0)
+    sim = simulation(
+        [late_task, horizon_task],
+        contacts=(ContactWindow(0, 10, 1, 1, 100),),
+        mission_duration_s=0.0,
+    )
+    sim._arrive_due()
+    result = sim.execute(Decision(Action.TRANSMIT, "late", "late-delivery test"))
+    assert result.success
+    assert sim.queue.records["late"].status == TaskStatus.LATE
+    assert sim.queue.records["late"] not in sim.queue.completed
+    sim._expire_due(inclusive=True)
+    metrics = calculate(sim)
+    assert metrics["tasks_completed_timely"] == 0
+    assert metrics["tasks_late"] == 1
+    assert metrics["timely_mission_value"] == 0.0
+
+
+def test_all_generated_tasks_have_one_terminal_outcome():
+    sim = build_simulation("normal", "predictive", 7)
+    sim.run()
+    metrics = calculate(sim)
+    assert metrics["tasks_generated"] == metrics["outcome_partition_count"]
+    assert metrics["tasks_unfinished"] == 0
+    assert len(task_outcome_rows(sim)) == metrics["tasks_generated"]
+
+
+def test_storage_and_energy_bounds_hold_after_full_run():
+    sim = build_simulation("task_burst", "predictive", 3)
+    sim.run()
+    assert 0.0 <= sim.satellite.storage_used_mb <= sim.satellite.storage_total_mb
+    assert 0.0 <= sim.satellite.energy_j <= sim.satellite.battery_capacity_j
+
+
+def test_memory_requirement_is_enforced_for_processing():
+    sim = simulation([task("memory", memory_mb=5_000.0)])
+    sim._arrive_due()
+    record = sim.queue.get("memory")
+    assert record is not None
+    assert sim.can_process(record) is False
+
+
+def test_arrivals_after_mission_horizon_are_rejected_by_the_input_contract():
+    with pytest.raises(ValueError, match="after mission_duration_s"):
+        simulation([task("late-arrival", created_at_s=2.0)], mission_duration_s=1.0)
+
+
+def test_expanding_process_result_never_overflows_storage_after_concurrent_arrival():
+    growing = task(
+        "growing",
+        deadline_s=20.0,
+        input_size_mb=1.0,
+        output_size_mb=2.5,
+        processing_time_s=2.0,
+    )
+    concurrent = task("concurrent", created_at_s=1.0, deadline_s=20.0, input_size_mb=1.0)
+    sim = simulation(
+        [growing, concurrent],
+        storage_mb=3.0,
+        scheduler=ProcessNamedThenIdleScheduler("growing"),
+    )
+    sim.run()
+    assert sim.queue.records["growing"].status == TaskStatus.FAILED
+    assert 0.0 <= sim.satellite.storage_used_mb <= sim.satellite.storage_total_mb
+
+
+def test_workload_generation_is_scheduler_independent_and_reproducible():
+    config = load_config("normal")
+    first = generate_tasks(config, 42)
+    second = generate_tasks(config, 42)
+    assert first == second
+    assert first != generate_tasks(config, 43)
+
+
+def test_repeated_scheduler_run_is_reproducible():
+    first = build_simulation("normal", "predictive", 7)
+    second = build_simulation("normal", "predictive", 7)
+    assert first.run() == second.run()
+    assert calculate(first) == calculate(second)
+
+
+def test_predictive_can_select_lower_edf_task_when_first_has_no_feasible_route():
+    blocked = task("blocked", deadline_s=5.0, input_size_mb=100.0, output_size_mb=100.0)
+    viable = task("viable", deadline_s=20.0, input_size_mb=0.1, output_size_mb=0.05)
+    sim = simulation(
+        [blocked, viable],
+        contacts=(ContactWindow(0, 15, 1, 1, 100),),
+        scheduler=PredictiveScheduler(horizon_s=30.0),
+        mission_duration_s=0.0,
+    )
+    sim._arrive_due()
+    decision = sim.scheduler.decide(sim.snapshot(), sim.queue.ordered(0.0), sim)
+    assert decision.task_id == "viable"
+    assert decision.action == Action.TRANSMIT
+
+
+def test_predictive_process_candidate_requires_feasible_result_contact():
+    item = task("compress", deadline_s=50.0, input_size_mb=4.0, output_size_mb=0.1)
+    with_contact = simulation(
+        [item],
+        contacts=(ContactWindow(20, 30, 1, 1, 100),),
+        mission_duration_s=0.0,
+    )
+    with_contact._arrive_due()
+    record = with_contact.queue.get("compress")
+    assert record is not None
+    assert any(candidate["first_action"] == Action.PROCESS for candidate in with_contact.plan_candidates(record, 60.0))
+
+    without_contact = simulation([item], mission_duration_s=0.0)
+    without_contact._arrive_due()
+    record = without_contact.queue.get("compress")
+    assert record is not None
+    assert all(candidate["first_action"] != Action.PROCESS for candidate in without_contact.plan_candidates(record, 60.0))
+
+
+def test_trace_events_contain_before_after_state_and_rationale():
+    sim = build_simulation("normal", "predictive", 2)
+    sim.run()
+    action_events = [event for event in sim.events if event["event"] in {"processed", "transmitted", "stored"}]
+    assert action_events
+    assert all("rationale" in event and "energy_j" in event and "storage_used_mb" in event for event in action_events)
+
+
+def test_trace_export_is_generated_from_a_real_completed_task(tmp_path):
+    summary = create_trace(scenario="normal", scheduler="predictive", seed=2, output=tmp_path)
+    assert summary["terminal_status"] == TaskStatus.COMPLETED.value
+    assert (tmp_path / "trace_demo.csv").exists()
+    assert (tmp_path / "trace_demo.svg").exists()
+    assert (tmp_path / "trace_demo.md").exists()
+
+
+def test_runner_exports_matched_workloads_and_trace(tmp_path):
+    rows = run(
+        scenarios=("normal",),
+        schedulers=("greedy", "predictive"),
+        seeds=[2],
+        output=tmp_path,
+        evaluation_version="test",
+        allow_dirty=True,
+    )
+    assert len(rows) == 2
+    assert rows[0]["workload_sha256"] == rows[1]["workload_sha256"]
+    assert (tmp_path / "raw_runs.csv").exists()
+    assert (tmp_path / "figures" / "terminal_outcomes.svg").exists()
+    assert (tmp_path / "trace" / "trace_demo.csv").exists()
+
+
+def test_runner_can_append_non_overlapping_shards(tmp_path):
+    first = run(
+        scenarios=("normal",),
+        schedulers=("greedy",),
+        seeds=[2],
+        output=tmp_path,
+        evaluation_version="test-append",
+        allow_dirty=True,
+    )
+    second = run(
+        scenarios=("poor_link",),
+        schedulers=("predictive",),
+        seeds=[2],
+        output=tmp_path,
+        evaluation_version="test-append",
+        allow_dirty=True,
+        append=True,
+    )
+    assert len(first) == 1
+    assert len(second) == 2
+    assert (tmp_path / "configs" / "normal.yaml").exists()
+    assert (tmp_path / "configs" / "poor_link.yaml").exists()
+    commands = (tmp_path / "commands.txt").read_text(encoding="utf-8")
+    assert "--scenarios normal" in commands
+    assert "--scenarios poor_link" in commands

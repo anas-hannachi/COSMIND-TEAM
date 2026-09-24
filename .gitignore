@@ -5,5 +5,7 @@ __pycache__/
 venv/
 .env
 *.log
-results/
+results/*
+!results/evaluation_v1/
+!results/evaluation_v1/**
 *.egg-info/

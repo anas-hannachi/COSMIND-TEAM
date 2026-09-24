@@ -8,8 +8,21 @@ class EnergyModel:
     def power(self, action: str) -> float:
         return {"PROCESS": self.process_power_w, "TRANSMIT": self.transmit_power_w,
                 "STORE": self.store_power_w, "IDLE": self.idle_power_w}[action]
-    def evolve(self, satellite: Satellite, action: str, duration_s: float, sunlight: bool) -> float:
-        consumed = self.power(action) * duration_s
-        satellite.energy_j = min(self.capacity_j, max(0.0, satellite.energy_j - consumed + (self.solar_power_w * duration_s if sunlight else 0)))
+    def evolve(
+        self,
+        satellite: Satellite,
+        action: str,
+        duration_s: float,
+        sunlight: bool,
+        consumed_j: float | None = None,
+    ) -> tuple[float, float]:
+        requested = self.power(action) * duration_s if consumed_j is None else consumed_j
+        harvested = self.solar_power_w * duration_s if sunlight else 0.0
+        available = satellite.energy_j + harvested
+        # PROCESS and TRANSMIT are preflighted before use.  For passive IDLE
+        # evolution, curtail consumption at an empty battery rather than
+        # recording physically impossible negative energy.
+        consumed = min(requested, available)
+        satellite.energy_j = min(self.capacity_j, max(0.0, available - consumed))
         satellite.solar_power_w = self.solar_power_w if sunlight else 0.0
-        return consumed
+        return consumed, harvested

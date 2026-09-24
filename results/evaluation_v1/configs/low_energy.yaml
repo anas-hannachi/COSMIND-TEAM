@@ -1,0 +1,10 @@
+mission_duration_s: 3600
+sunlight_s: 240
+eclipse_s: 960
+storage_mb: 2000
+energy: {initial_energy_j: 1800, capacity_j: 8000, idle_power_w: 18, process_power_w: 45, transmit_power_w: 80, store_power_w: 10, solar_power_w: 35}
+workload: {interarrival_s: [12, 25], deadline_s: [120, 600], critical_probability: 0.12}
+contacts:
+  - {start_s: 450, end_s: 610, bandwidth_start_mbps: 5, bandwidth_end_mbps: 8, latency_ms: 120}
+  - {start_s: 1650, end_s: 1810, bandwidth_start_mbps: 5, bandwidth_end_mbps: 8, latency_ms: 120}
+  - {start_s: 2850, end_s: 3010, bandwidth_start_mbps: 5, bandwidth_end_mbps: 8, latency_ms: 120}
