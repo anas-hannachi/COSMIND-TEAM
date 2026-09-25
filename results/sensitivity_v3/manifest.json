@@ -1,0 +1,41 @@
+{
+  "code_commit_sha": "044701d81fe1c7e816d83581e907424106a40657",
+  "experiment": "one-factor-at-a-time sensitivity analysis",
+  "interpretation": "Scaled coefficients are sensitivity assumptions, not hardware measurements.",
+  "model_profiles": {
+    "synthetic_v1": "781d0e388741aa6fbb946d6cc78bc0e88df2ed45e0c690bc6a0098a567f08c5c"
+  },
+  "multipliers": [
+    0.75,
+    1.0,
+    1.25
+  ],
+  "parameters": [
+    "available_energy_j",
+    "contact_bandwidth",
+    "contact_window_duration",
+    "interarrival_s",
+    "deadline_s",
+    "storage_mb"
+  ],
+  "primary_metric": "timely_value_retention",
+  "run_count": 432,
+  "scenarios": [
+    "normal",
+    "low_energy",
+    "poor_link",
+    "task_burst"
+  ],
+  "schedulers": [
+    "random",
+    "rule",
+    "greedy",
+    "edf",
+    "contact_knapsack",
+    "predictive"
+  ],
+  "seeds": [
+    100
+  ],
+  "source_tree_clean": true
+}

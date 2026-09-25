@@ -1,0 +1,17 @@
+mission_duration_s: 3600
+model_profile: thermal_stress_v1
+sunlight_s: 600
+eclipse_s: 600
+storage_mb: 2000
+energy:
+  initial_energy_j: 5000
+workload:
+  interarrival_s: [2, 6]
+  deadline_s: [100, 400]
+  critical_probability: 0.2
+contacts:
+  - {start_s: 100, end_s: 250, bandwidth_start_mbps: 2, bandwidth_end_mbps: 10, latency_ms: 100}
+  - {start_s: 600, end_s: 800, bandwidth_start_mbps: 5, bandwidth_end_mbps: 10, latency_ms: 100}
+  - {start_s: 1300, end_s: 1500, bandwidth_start_mbps: 5, bandwidth_end_mbps: 10, latency_ms: 100}
+  - {start_s: 2000, end_s: 2200, bandwidth_start_mbps: 5, bandwidth_end_mbps: 10, latency_ms: 100}
+  - {start_s: 2700, end_s: 2900, bandwidth_start_mbps: 5, bandwidth_end_mbps: 10, latency_ms: 100}

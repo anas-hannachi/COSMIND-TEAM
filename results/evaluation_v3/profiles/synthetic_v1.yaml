@@ -1,0 +1,20 @@
+# Explicit assumptions for the reproducible single-satellite synthetic model.
+# These are not calibrated hardware values.
+energy:
+  capacity_j: 8000
+  idle_power_w: 18
+  process_power_w: 45
+  transmit_power_w: 80
+  store_power_w: 10
+  solar_power_w: 60
+compute:
+  max_frequency_hz: 2500000000
+  ram_total_mb: 4096
+  capacity_units: 100
+  throttled_capacity_fraction: 0.5
+thermal:
+  temperature_c: 20
+  max_temp_c: 60
+  heating_c_per_s: 0.08
+  cooling_c_per_s: 0.02
+  throttle_at_fraction: 0.85

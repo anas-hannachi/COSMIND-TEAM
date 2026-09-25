@@ -1,0 +1,2 @@
+python -m pytest
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v3 --evaluation-version evaluation_v3 --scenarios normal low_energy poor_link task_burst critical energy_link_stress thermal_burst_stress --schedulers random rule greedy edf contact_knapsack predictive

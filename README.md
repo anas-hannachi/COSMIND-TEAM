@@ -98,6 +98,8 @@ Choose other parameters, scenarios, seed ranges, or multipliers with `--paramete
 
 The repository also contains [`docs/demonstration.md`](docs/demonstration.md), which describes how to export a deterministic lifecycle showing satellite state, scheduler rationale, PROCESS/STORE/TRANSMIT actions, and the resulting task outcome.
 
+The focused screening sweep is summarized in [`docs/sensitivity_v3_summary.md`](docs/sensitivity_v3_summary.md); its one-seed results are directional sensitivity evidence, not multi-seed inferential results.
+
 ## Metrics and interpretation
 
 The primary metric is **timely mission-value retention**:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import importlib.metadata
 import json
 import platform
@@ -69,7 +70,8 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
     if not rows:
         path.write_text("", encoding="utf-8")
         return
-    with path.open("w", newline="", encoding="utf-8") as handle:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "wt", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
@@ -78,7 +80,8 @@ def _write_csv(path: Path, rows: list[dict]) -> None:
 def _read_csv(path: Path) -> list[dict]:
     if not path.exists():
         return []
-    with path.open(newline="", encoding="utf-8") as handle:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 
 
@@ -136,7 +139,7 @@ def _write_evaluation_readme(
         "- Matrix: every listed scheduler receives the identical generated workload for each scenario/seed pair.\n\n"
         "## Files\n\n"
         "- `raw_runs.csv`: one aggregate row per scenario, scheduler, and workload seed.\n"
-        "- `task_outcomes.csv`: one terminal-lifecycle audit row per generated task.\n"
+        "- `task_outcomes.csv.gz`: compressed terminal-lifecycle audit rows for every generated task.\n"
         "- `workload_manifest.csv` and `workloads/`: fixed task inputs and SHA-256 hashes.\n"
         "- `profiles/`: exact physical-model assumptions and their hashes.\n"
         "- `summaries/`: mean/95% t-interval summaries and matched-seed Predictive comparisons.\n"
@@ -173,7 +176,8 @@ def run(
     (output_path / "profiles").mkdir(exist_ok=True)
     seed_list = list(seeds)
     rows = _read_csv(output_path / "raw_runs.csv") if append else []
-    outcomes = _read_csv(output_path / "task_outcomes.csv") if append else []
+    outcomes_path = output_path / "task_outcomes.csv.gz"
+    outcomes = _read_csv(outcomes_path) if append else []
     workload_manifest = _read_csv(output_path / "workload_manifest.csv") if append else []
     for row in rows:
         if row.get("evaluation_version") != evaluation_version or row.get("code_commit_sha") != code_commit_sha:
@@ -238,7 +242,7 @@ def run(
                 existing_run_keys.add(run_key)
 
     _write_csv(output_path / "raw_runs.csv", rows)
-    _write_csv(output_path / "task_outcomes.csv", outcomes)
+    _write_csv(outcomes_path, outcomes)
     _write_csv(output_path / "workload_manifest.csv", workload_manifest)
     summaries = summarize_rows(rows)
     paired = paired_comparisons(rows)
