@@ -59,7 +59,14 @@ class ContactKnapsackScheduler:
                         current[capacity] = packed_value
                         take[row][capacity] = True
 
-        remaining = capacity_s
+        best_capacity = max(
+            range(capacity_s + 1),
+            key=lambda capacity: (values[row_count][capacity], capacity),
+        )
+        if values[row_count][best_capacity] == float("-inf"):
+            return Decision(Action.IDLE, rationale="contact knapsack selected no payload")
+
+        remaining = best_capacity
         selected = []
         for row in range(row_count, 0, -1):
             if take[row][remaining]:
@@ -74,5 +81,5 @@ class ContactKnapsackScheduler:
             Action.TRANSMIT,
             first.task.id,
             f"contact knapsack packed {len(selected)} payloads, "
-            f"value={values[row_count][capacity_s]:.1f}",
+            f"value={values[row_count][best_capacity]:.1f}",
         )

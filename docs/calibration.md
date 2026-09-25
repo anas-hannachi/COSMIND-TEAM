@@ -2,6 +2,8 @@
 
 The checked-in energy, compute, thermal, link, and task parameters are assumptions for a software prototype. Do not describe simulation results as device or mission measurements until these parameters have been calibrated.
 
+The concrete Phase-3 bench protocol is documented in [`phase3_hardware_protocol.md`](phase3_hardware_protocol.md), and a LaTeX-ready manuscript section is provided in [`phase3_latex_insert.tex`](phase3_latex_insert.tex). These documents describe planned measurements only; they do not report completed hardware results.
+
 ## Collect repeatable device measurements
 
 Use the target board (or document the closest available substitute) and profile representative task types separately. For each run, record:

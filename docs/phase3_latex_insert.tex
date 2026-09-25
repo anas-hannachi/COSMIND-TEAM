@@ -1,0 +1,14 @@
+% LaTeX insert for the Phase-3 hardware roadmap.
+% This section reports a planned protocol, not completed measurements.
+\subsection{Phase-3 Hardware-in-the-Loop Plan}
+\label{sec:phase3-hardware}
+
+The next phase will calibrate selected simulator parameters on a representative bench platform. The initial platform will be a Raspberry Pi 5 with 8~GB RAM, active cooling, documented firmware and operating-system versions, and input-side power logging. A calibrated 5~V rail monitor will measure board-input voltage, current, and energy; software counters alone will not be used as energy measurements. Board temperature telemetry will be logged and cross-checked with an external ambient sensor and, where available, an external thermal probe.
+
+The workload set will include a telemetry transform, image compression at multiple input sizes and quality settings, one documented science or inference workload, and idle operation. Each configuration will include a warm-up phase and repeated retained trials. The raw record will contain wall-clock duration, input and output size, input energy, peak power, peak resident memory, temperature, CPU frequency, throttling flags, software and hardware identifiers, and success or failure reason. Failed and throttled trials will remain in the dataset.
+
+Communication will be measured separately from compute. For each controlled link mode and payload size, the experiment will record throughput, latency, transfer energy, contact timing, retransmissions, and failures. A controlled Ethernet or Wi-Fi link emulator may be used initially when a flight-like radio is unavailable; such a setup will be reported as a communication emulation experiment rather than radio validation.
+
+A measured model profile will be created only after the raw data and derivation procedure are archived. Each calibrated parameter will identify its source-data hash, statistic, unit conversion, uncertainty, and profile version. The synthetic profiles and the frozen \texttt{evaluation\_v2} artifact will remain unchanged. Calibrated simulations will use a new evaluation version and a new manifest. Simulation and hardware trials will replay matched task configurations and compare duration, energy, memory, temperature, output size, and task outcomes using medians and variation across repeated trials.
+
+This planned activity is calibration of a representative bench platform, not spacecraft qualification, orbital validation, radiation testing, or flight readiness. No hardware measurements are reported in the present Phase-2 evaluation.

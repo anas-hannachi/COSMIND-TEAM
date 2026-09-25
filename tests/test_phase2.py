@@ -279,6 +279,41 @@ def test_contact_knapsack_beats_single_largest_payload_value():
     assert "value=14.0" in decision.rationale
 
 
+def test_contact_knapsack_selects_higher_value_subset_without_exact_fill():
+    low_value_long = task("long-low", input_size_mb=10.0, mission_value=1.0, deadline_s=30.0)
+    high_value_short = task("short-high", input_size_mb=9.0, mission_value=100.0, deadline_s=30.0)
+    sim = simulation(
+        [low_value_long, high_value_short],
+        storage_mb=25.0,
+        contacts=(ContactWindow(0, 10, 8, 8, 0),),
+        scheduler=ContactKnapsackScheduler(),
+        mission_duration_s=0.0,
+    )
+    sim._arrive_due()
+    decision = sim.scheduler.decide(sim.snapshot(), sim.queue.ordered(0.0), sim)
+    assert decision.action == Action.TRANSMIT
+    assert decision.task_id == "short-high"
+    assert "value=100.0" in decision.rationale
+
+
+def test_contact_knapsack_selects_feasible_subset_when_contact_is_not_filled():
+    tasks = [
+        task(task_id, input_size_mb=3.0, mission_value=1.0, deadline_s=30.0)
+        for task_id in ("three-a", "three-b", "three-c")
+    ]
+    sim = simulation(
+        tasks,
+        contacts=(ContactWindow(0, 10, 8, 8, 0),),
+        scheduler=ContactKnapsackScheduler(),
+        mission_duration_s=0.0,
+    )
+    sim._arrive_due()
+    decision = sim.scheduler.decide(sim.snapshot(), sim.queue.ordered(0.0), sim)
+    assert decision.action == Action.TRANSMIT
+    assert decision.task_id in {"three-a", "three-b", "three-c"}
+    assert "packed 3 payloads" in decision.rationale
+
+
 def test_sensitivity_runner_exports_matched_policy_sweep(tmp_path):
     rows = run_sensitivity(
         parameters=("thermal_heating_c_per_s",),
