@@ -14,7 +14,7 @@ It is a simulator, not a flight implementation and not a Raspberry Pi measuremen
 - A matched-seed experiment runner that exports workload manifests, per-run metrics, per-task outcomes, summaries, paired comparisons, SVG figures, and a simulator-generated lifecycle trace.
 
 The Predictive policy is deliberately described as a heuristic. It scores only routes it can project as deadline-feasible (raw downlink now, process then a feasible downlink, or store until a feasible downlink); it does not claim global optimization or capacity reservation.
-The `contact_knapsack` reference solves an exact 0/1 value-packing problem for the remaining current contact, with transfer durations rounded up to whole seconds. It replans after each transfer and is not a global mission optimizer.
+The historical `contact_knapsack` implementation in `evaluation_v2` used an exact 0/1 value-packing formulation over rounded transfer durations but had a capacity-reconstruction defect. Commit `24b8649` repairs that path and adds counterexample tests; the corrected full results are in `evaluation_v3`. Neither version is a global mission optimizer.
 
 ## Quick start
 
@@ -51,7 +51,7 @@ The same workflow checks for undefined names and unused imports with Ruff before
 - `scenarios/` - seven synthetic mission configurations;
 - `profiles/` - named, versioned physical-model assumptions used by scenarios;
 - `tests/` - lifecycle, feasibility, determinism, and resource-bound regression tests;
-- `results/evaluation_v1/` and `results/evaluation_v2/` - versioned evaluation inputs, summaries, and generated evidence.
+- `results/evaluation_v1/`, `results/evaluation_v2/`, and `results/evaluation_v3/` - versioned evaluation inputs, summaries, and generated evidence.
 
 The regression suite covers lifecycle accounting, resource bounds, deterministic workloads, scheduler selection, named profile resolution, sensitivity sweeps, and trace generation.
 
@@ -78,6 +78,14 @@ The output directory contains:
 
 See [`docs/results_summary.md`](docs/results_summary.md) for the current synthetic evaluation and interpretation limits.
 
+The corrected full evaluation is reproduced with:
+
+```bash
+python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v3 --evaluation-version evaluation_v3
+```
+
+See [`docs/results_summary_v3.md`](docs/results_summary_v3.md) for the corrected macro-averages and outcome totals.
+
 ## Sensitivity analysis
 
 After committing source changes, use the one-factor-at-a-time runner to check whether results depend on modeled assumptions. The default sweep scales processing power to 75%, 100%, and 125% of its configured value across all scenarios and schedulers, using 20 seeds for each scenario and multiplier. Every scheduler receives the same generated workload for a given scenario, parameter, multiplier, and seed:
@@ -86,7 +94,9 @@ After committing source changes, use the one-factor-at-a-time runner to check wh
 python -m pmars_simulation.experiments.sensitivity --output results/sensitivity_v1
 ```
 
-Choose other parameters, scenarios, seed ranges, or multipliers with `--parameters`, `--scenarios`, `--seed-start`, `--seeds`, and `--multipliers`. Supported parameters include power, contact bandwidth, task interarrival, compute capacity, and thermal rates. The output includes per-run metrics, summary confidence intervals, paired Predictive-versus-baseline comparisons, and a manifest with hashes. Multipliers are sensitivity assumptions, not measured physical values. See [`docs/calibration.md`](docs/calibration.md) before interpreting or replacing them with hardware measurements.
+Choose other parameters, scenarios, seed ranges, or multipliers with `--parameters`, `--scenarios`, `--seed-start`, `--seeds`, and `--multipliers`. Supported parameters include power, contact bandwidth, contact-window duration, task interarrival, deadline tightness, available initial energy, storage capacity, compute capacity, and thermal rates. The output includes per-run metrics, summary confidence intervals, paired Predictive-versus-baseline comparisons, and a manifest with hashes. Multipliers are sensitivity assumptions, not measured physical values. See [`docs/calibration.md`](docs/calibration.md) before interpreting or replacing them with hardware measurements.
+
+The repository also contains [`docs/demonstration.md`](docs/demonstration.md), which describes how to export a deterministic lifecycle showing satellite state, scheduler rationale, PROCESS/STORE/TRANSMIT actions, and the resulting task outcome.
 
 ## Metrics and interpretation
 
