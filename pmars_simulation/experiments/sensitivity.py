@@ -27,7 +27,11 @@ PARAMETERS = (
     "transmit_power_w",
     "solar_power_w",
     "contact_bandwidth",
+    "contact_window_duration",
     "interarrival_s",
+    "deadline_s",
+    "available_energy_j",
+    "storage_mb",
     "compute_capacity_units",
     "throttled_capacity_fraction",
     "thermal_heating_c_per_s",
@@ -46,8 +50,19 @@ def _scaled_config(name: str, parameter: str, multiplier: float) -> dict:
         for contact in config["contacts"]:
             contact["bandwidth_start_mbps"] *= multiplier
             contact["bandwidth_end_mbps"] *= multiplier
+    elif parameter == "contact_window_duration":
+        for contact in config["contacts"]:
+            contact["end_s"] = contact["start_s"] + (
+                contact["end_s"] - contact["start_s"]
+            ) * multiplier
     elif parameter == "interarrival_s":
         config["workload"][parameter] = [value * multiplier for value in config["workload"][parameter]]
+    elif parameter == "deadline_s":
+        config["workload"][parameter] = [value * multiplier for value in config["workload"][parameter]]
+    elif parameter == "available_energy_j":
+        config["energy"]["initial_energy_j"] *= multiplier
+    elif parameter == "storage_mb":
+        config["storage_mb"] *= multiplier
     elif parameter == "compute_capacity_units":
         config["compute"]["capacity_units"] *= multiplier
     elif parameter == "throttled_capacity_fraction":

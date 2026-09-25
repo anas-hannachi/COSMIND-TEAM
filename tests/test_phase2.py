@@ -241,8 +241,16 @@ def test_thermal_stress_scenario_reaches_its_throttle_threshold():
 def test_sensitivity_scales_compute_and_thermal_profile_values():
     compute = _scaled_config("normal", "compute_capacity_units", 1.2)
     thermal = _scaled_config("normal", "thermal_heating_c_per_s", 1.5)
+    contact = _scaled_config("normal", "contact_window_duration", 0.5)
+    deadline = _scaled_config("normal", "deadline_s", 0.5)
+    energy = _scaled_config("normal", "available_energy_j", 0.5)
+    storage = _scaled_config("normal", "storage_mb", 0.5)
     assert compute["compute"]["capacity_units"] == pytest.approx(120.0)
     assert thermal["thermal"]["heating_c_per_s"] == pytest.approx(0.12)
+    assert contact["contacts"][0]["end_s"] == pytest.approx(160.0)
+    assert deadline["workload"]["deadline_s"] == [60.0, 300.0]
+    assert energy["energy"]["initial_energy_j"] == pytest.approx(2500.0)
+    assert storage["storage_mb"] == pytest.approx(1000.0)
     with pytest.raises(ValueError, match="finite and positive"):
         _scaled_config("normal", "process_power_w", float("nan"))
 
