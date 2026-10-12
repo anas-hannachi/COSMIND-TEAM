@@ -1,4 +1,5 @@
 #include "pmars_proto.h"
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -192,13 +193,13 @@ static int emit_body(const char *body, char *output, size_t capacity) {
     if (body == NULL || output == NULL || capacity == 0U || body[0] != '{') return 0;
     length = strlen(body);
     crc = crc_bytes(body, length);
-    n = snprintf(output, capacity, "{\"crc\":%u,%s\n", crc, body + 1);
+    n = snprintf(output, capacity, "{\"crc\":%" PRIu32 ",%s\n", crc, body + 1);
     return n > 0 && (size_t)n < capacity;
 }
 
 static int emit_error(uint32_t seq, const char *code, char *output, size_t capacity) {
     char body[160];
-    (void)snprintf(body, sizeof(body), "{\"code\":\"%s\",\"seq\":%u,\"type\":\"error\",\"v\":1}", code, seq);
+    (void)snprintf(body, sizeof(body), "{\"code\":\"%s\",\"seq\":%" PRIu32 ",\"type\":\"error\",\"v\":1}", code, seq);
     return emit_body(body, output, capacity);
 }
 
@@ -288,7 +289,7 @@ int pmars_proto_handle(pmars_proto_session_t *session, const char *line, size_t 
 
     if (strcmp(type, "hello") == 0 || strcmp(type, "hello_ack") == 0) {
         (void)snprintf(session->body, sizeof(session->body),
-            "{\"contract_version\":1,\"firmware_version\":\"%s\",\"free_heap_bytes\":%u,\"git_sha\":\"%s\",\"idf_version\":\"%s\",\"max_contacts\":%u,\"max_line\":%u,\"max_tasks\":%u,\"reset_reason\":\"%s\",\"seq\":%u,\"stack_high_water_words\":%u,\"target\":\"%s\",\"type\":\"hello_ack\",\"v\":1}",
+            "{\"contract_version\":1,\"firmware_version\":\"%s\",\"free_heap_bytes\":%" PRIu32 ",\"git_sha\":\"%s\",\"idf_version\":\"%s\",\"max_contacts\":%u,\"max_line\":%u,\"max_tasks\":%u,\"reset_reason\":\"%s\",\"seq\":%" PRIu32 ",\"stack_high_water_words\":%" PRIu32 ",\"target\":\"%s\",\"type\":\"hello_ack\",\"v\":1}",
             session->firmware_version, session->free_heap_bytes, session->git_sha,
             session->idf_version, PMARS_MAX_CONTACTS, PMARS_PROTO_MAX_LINE, PMARS_MAX_TASKS,
             session->reset_reason, seq, session->stack_high_water, session->target);
@@ -304,7 +305,7 @@ int pmars_proto_handle(pmars_proto_session_t *session, const char *line, size_t 
         { pmars_config_t defaults = {300000, 90000};
           pmars_engine_init(&session->engine, state, &defaults, 0); }
         session->min_free_heap_bytes = session->free_heap_bytes;
-        (void)snprintf(session->body, sizeof(session->body), "{\"seq\":%u,\"type\":\"reset_ack\",\"v\":1}", seq);
+        (void)snprintf(session->body, sizeof(session->body), "{\"seq\":%" PRIu32 ",\"type\":\"reset_ack\",\"v\":1}", seq);
     } else if (strcmp(type, "config") == 0) {
         pmars_state_t *state = &session->scratch_state;
         pmars_config_t cfg = session->engine.config;
@@ -330,7 +331,7 @@ int pmars_proto_handle(pmars_proto_session_t *session, const char *line, size_t 
         if (read_int(json, "urgent_slack_ms", &value)) cfg.urgent_slack_ms = value;
         (void)read_bool(json, "rule", &rule_flag);
         pmars_engine_init(&session->engine, state, &cfg, rule_flag != 0U);
-        (void)snprintf(session->body, sizeof(session->body), "{\"seq\":%u,\"type\":\"config_ack\",\"v\":1}", seq);
+        (void)snprintf(session->body, sizeof(session->body), "{\"seq\":%" PRIu32 ",\"type\":\"config_ack\",\"v\":1}", seq);
     } else if (strcmp(type, "task_submit") == 0) {
         char id[PMARS_ID_BYTES];
         const char *task_key = strstr(json, "\"task\":{");
@@ -362,7 +363,7 @@ int pmars_proto_handle(pmars_proto_session_t *session, const char *line, size_t 
         }
         if (!pmars_engine_admit(&session->engine, task)) return emit_error(seq, "admission_rejected", output, output_capacity);
         (void)snprintf(session->body, sizeof(session->body),
-            "{\"accepted\":true,\"seq\":%u,\"status\":\"pending\",\"task_id\":\"%s\",\"type\":\"event\",\"v\":1}", seq, task->id);
+            "{\"accepted\":true,\"seq\":%" PRIu32 ",\"status\":\"pending\",\"task_id\":\"%s\",\"type\":\"event\",\"v\":1}", seq, task->id);
     } else if (strcmp(type, "decide") == 0 || strcmp(type, "tick") == 0) {
         uint32_t count = 0U;
         pmars_decision_t decision;
@@ -396,23 +397,23 @@ int pmars_proto_handle(pmars_proto_session_t *session, const char *line, size_t 
                 }
             }
             (void)snprintf(session->body, sizeof(session->body),
-                "{\"action\":\"%s\",\"energy_mj\":%lld,\"now_ms\":%lld,\"seq\":%u,\"status\":\"%s\",\"storage_used_bytes\":%lld,\"task_id\":\"%s\",\"terminal_outcome\":\"%s\",\"type\":\"event\",\"v\":1}",
+                "{\"action\":\"%s\",\"energy_mj\":%lld,\"now_ms\":%lld,\"seq\":%" PRIu32 ",\"status\":\"%s\",\"storage_used_bytes\":%lld,\"task_id\":\"%s\",\"terminal_outcome\":\"%s\",\"type\":\"event\",\"v\":1}",
                 action, (long long)session->engine.state.energy_mj, (long long)session->engine.state.now_ms,
                 seq, status, (long long)session->engine.state.storage_used_bytes, task_id, terminal);
             if (step_result < 0) return emit_error(seq, "step_failed", output, output_capacity);
         } else {
             const char *action = decision.action == PMARS_PROCESS ? "PROCESS" : decision.action == PMARS_STORE ? "STORE" :
                                  decision.action == PMARS_TRANSMIT ? "TRANSMIT" : "IDLE";
-            (void)snprintf(session->body, sizeof(session->body), "{\"action\":\"%s\",\"seq\":%u,\"task_id\":\"%s\",\"type\":\"decision\",\"v\":1}",
+            (void)snprintf(session->body, sizeof(session->body), "{\"action\":\"%s\",\"seq\":%" PRIu32 ",\"task_id\":\"%s\",\"type\":\"decision\",\"v\":1}",
                            action, seq, decision.task_id);
         }
     } else if (strcmp(type, "event") == 0) {
         if (session->engine.event_count == 0U) {
-            (void)snprintf(session->body, sizeof(session->body), "{\"seq\":%u,\"type\":\"ack\",\"v\":1}", seq);
+            (void)snprintf(session->body, sizeof(session->body), "{\"seq\":%" PRIu32 ",\"type\":\"ack\",\"v\":1}", seq);
         } else {
             const pmars_event_t *event = &session->engine.events[session->engine.event_head];
             (void)snprintf(session->body, sizeof(session->body),
-                "{\"event_kind\":\"%s\",\"seq\":%u,\"task_id\":\"%s\",\"task_index\":%u,\"time_ms\":%lld,\"type\":\"event\",\"v\":1}",
+                "{\"event_kind\":\"%s\",\"seq\":%" PRIu32 ",\"task_id\":\"%s\",\"task_index\":%u,\"time_ms\":%lld,\"type\":\"event\",\"v\":1}",
                 event_name(event->kind), seq, event->task_id, (unsigned)event->task_index,
                 (long long)event->time_ms);
             session->engine.event_head = (session->engine.event_head + 1U) % PMARS_MAX_EVENTS;
@@ -429,7 +430,7 @@ int pmars_proto_handle(pmars_proto_session_t *session, const char *line, size_t 
             }
         }
         (void)snprintf(session->body, sizeof(session->body),
-            "{\"completed\":%u,\"dropped_events\":%u,\"expired\":%u,\"free_heap_bytes\":%u,\"late\":%u,\"min_free_heap_bytes\":%u,\"rejected\":%u,\"seq\":%u,\"stack_high_water_words\":%u,\"type\":\"result\",\"unfinished\":%u,\"v\":1}",
+            "{\"completed\":%" PRIu32 ",\"dropped_events\":%" PRIu32 ",\"expired\":%" PRIu32 ",\"free_heap_bytes\":%" PRIu32 ",\"late\":%" PRIu32 ",\"min_free_heap_bytes\":%" PRIu32 ",\"rejected\":%" PRIu32 ",\"seq\":%" PRIu32 ",\"stack_high_water_words\":%" PRIu32 ",\"type\":\"result\",\"unfinished\":%" PRIu32 ",\"v\":1}",
             session->engine.completed_count, session->engine.events_dropped, session->engine.expired_count,
             session->free_heap_bytes, session->engine.late_count, session->min_free_heap_bytes,
             session->engine.rejected_count, seq, session->stack_high_water,
