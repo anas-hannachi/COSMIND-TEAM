@@ -11,6 +11,7 @@ from pathlib import Path
 from ..analysis.statistics import mean_ci95
 from ..scenarios import (
     SCENARIO_NAMES,
+    BASE_SCENARIO_NAMES,
     build_simulation,
     config_sha256,
     generate_tasks,
@@ -35,6 +36,7 @@ PARAMETERS = (
     "compute_capacity_units",
     "throttled_capacity_fraction",
     "thermal_heating_c_per_s",
+    "thermal_transmit_heating_c_per_s",
     "thermal_cooling_c_per_s",
     "throttle_at_fraction",
 )
@@ -70,7 +72,7 @@ def _scaled_config(name: str, parameter: str, multiplier: float) -> dict:
         config["compute"]["throttled_capacity_fraction"] = min(
             config["compute"]["throttled_capacity_fraction"], 1.0,
         )
-    elif parameter in {"thermal_heating_c_per_s", "thermal_cooling_c_per_s", "throttle_at_fraction"}:
+    elif parameter in {"thermal_heating_c_per_s", "thermal_cooling_c_per_s", "thermal_transmit_heating_c_per_s", "throttle_at_fraction"}:
         key = parameter.removeprefix("thermal_")
         config["thermal"][key] *= multiplier
         if key == "throttle_at_fraction":
@@ -95,7 +97,7 @@ def run_sensitivity(
     *,
     parameters: tuple[str, ...] = ("process_power_w",),
     multipliers: tuple[float, ...] = (0.75, 1.0, 1.25),
-    scenarios: tuple[str, ...] = SCENARIO_NAMES,
+    scenarios: tuple[str, ...] = BASE_SCENARIO_NAMES,
     schedulers: tuple[str, ...] = DEFAULT_SCHEDULERS,
     seeds=range(100, 120),
     output: str | Path = "results/sensitivity",
@@ -216,6 +218,10 @@ def run_sensitivity(
             profile: model_profile_sha256(profile)
             for profile in sorted({load_config(scenario)["model_profile"] for scenario in scenarios})
         },
+        "model_profile_provenance": {
+            profile: load_config(next(s for s in scenarios if load_config(s)["model_profile"] == profile)).get("provenance", {})
+            for profile in sorted({load_config(scenario)["model_profile"] for scenario in scenarios})
+        },
         "multipliers": list(multipliers),
         "seeds": seed_list,
         "run_count": len(rows),
@@ -230,7 +236,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run matched PMARS model-parameter sensitivity sweeps.")
     parser.add_argument("--parameters", nargs="+", choices=PARAMETERS, default=("process_power_w",))
     parser.add_argument("--multipliers", nargs="+", type=float, default=(0.75, 1.0, 1.25))
-    parser.add_argument("--scenarios", nargs="+", choices=SCENARIO_NAMES, default=SCENARIO_NAMES)
+    parser.add_argument("--scenarios", nargs="+", choices=SCENARIO_NAMES, default=BASE_SCENARIO_NAMES)
     parser.add_argument("--schedulers", nargs="+", choices=DEFAULT_SCHEDULERS, default=DEFAULT_SCHEDULERS)
     parser.add_argument("--seed-start", type=int, default=100)
     parser.add_argument("--seeds", type=int, default=20)

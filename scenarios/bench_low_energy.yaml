@@ -1,0 +1,20 @@
+mission_duration_s: 300
+model_profile: esp32_assumed_v1
+sunlight_s: 150
+eclipse_s: 150
+storage_mb: 0.256
+energy: {initial_energy_j: 18, capacity_j: 20, idle_power_w: 0.25, process_power_w: 0.6, transmit_power_w: 0.8, store_power_w: 0.3, solar_power_w: 0.1}
+workload:
+  interarrival_s: [5, 9]
+  deadline_s: [35, 85]
+  critical_probability: 0.10
+  kinds:
+    - {type: telemetry, size_mb: 0.001, priority: 2, output_ratio: 0.8, freshness_per_min: 0.1, memory_mb: 0.01}
+    - {type: bench_compress, size_mb: 0.008, priority: 5, output_ratio: 0.4, freshness_per_min: 0.02, memory_mb: 0.04}
+    - {type: bench_compress, size_mb: 0.064, priority: 7, output_ratio: 0.25, freshness_per_min: 0.01, memory_mb: 0.10}
+contacts:
+  - {start_s: 30, end_s: 50, bandwidth_start_mbps: 0.256, bandwidth_end_mbps: 0.256, latency_ms: 100}
+  - {start_s: 90, end_s: 110, bandwidth_start_mbps: 0.256, bandwidth_end_mbps: 0.256, latency_ms: 100}
+  - {start_s: 150, end_s: 170, bandwidth_start_mbps: 0.256, bandwidth_end_mbps: 0.256, latency_ms: 100}
+  - {start_s: 210, end_s: 230, bandwidth_start_mbps: 0.256, bandwidth_end_mbps: 0.256, latency_ms: 100}
+  - {start_s: 270, end_s: 290, bandwidth_start_mbps: 0.256, bandwidth_end_mbps: 0.256, latency_ms: 100}

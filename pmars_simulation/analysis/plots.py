@@ -8,6 +8,8 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
+from .statistics import t95
+
 
 COLORS = {
     "random": "#94a3b8",
@@ -18,10 +20,6 @@ COLORS = {
     "predictive": "#16a34a",
 }
 SCHEDULERS = ("random", "rule", "greedy", "edf", "contact_knapsack", "predictive")
-T95 = {2: 12.706, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447,
-       8: 2.365, 9: 2.306, 10: 2.262, 11: 2.228, 12: 2.201, 13: 2.179,
-       14: 2.160, 15: 2.145, 16: 2.131, 17: 2.120, 18: 2.110, 19: 2.101,
-       20: 2.093}
 
 
 def _svg(width: int, height: int, body: str) -> str:
@@ -44,7 +42,7 @@ def _mean_ci(values: list[float]) -> tuple[float, float]:
     mean = statistics.mean(values)
     if len(values) == 1:
         return mean, 0.0
-    return mean, T95.get(len(values), 1.96) * statistics.stdev(values) / math.sqrt(len(values))
+    return mean, t95(len(values)) * statistics.stdev(values) / math.sqrt(len(values))
 
 
 def _legend(parts: list[str], *, left: float, y: float, labels: tuple[str, ...], colors: dict[str, str]) -> None:

@@ -2,7 +2,7 @@
 
 This repository is a reproducible, discrete-event software prototype for the IASTAM Track 1 / Problem 1 research phase: scheduling onboard **PROCESS**, **STORE**, and **TRANSMIT** actions for time-sensitive satellite tasks.
 
-It is a simulator, not a flight implementation and not a Raspberry Pi measurement study. Its energy, storage, CPU, thermal, link, and workload values are explicit modeling assumptions that should be calibrated in later hardware-in-the-loop work.
+It is a simulator, not a flight implementation. Its energy, storage, CPU, thermal, link, and workload values are explicit modeling assumptions; no ESP32 measurements exist yet.
 
 ## What the project implements
 
@@ -88,10 +88,10 @@ See [`docs/results_summary_v3.md`](docs/results_summary_v3.md) for the corrected
 
 ## Sensitivity analysis
 
-After committing source changes, use the one-factor-at-a-time runner to check whether results depend on modeled assumptions. The default sweep scales processing power to 75%, 100%, and 125% of its configured value across all scenarios and schedulers, using 20 seeds for each scenario and multiplier. Every scheduler receives the same generated workload for a given scenario, parameter, multiplier, and seed:
+After committing source changes, use the one-factor-at-a-time runner to check whether results depend on modeled assumptions. The default output is `results/sensitivity`. The default sweep scales processing power to 75%, 100%, and 125% of its configured value across all original scenarios and schedulers, using 20 seeds for each scenario and multiplier. Every scheduler receives the same generated workload for a given scenario, parameter, multiplier, and seed:
 
 ```bash
-python -m pmars_simulation.experiments.sensitivity --output results/sensitivity_v1
+python -m pmars_simulation.experiments.sensitivity --output results/sensitivity
 ```
 
 Choose other parameters, scenarios, seed ranges, or multipliers with `--parameters`, `--scenarios`, `--seed-start`, `--seeds`, and `--multipliers`. Supported parameters include power, contact bandwidth, contact-window duration, task interarrival, deadline tightness, available initial energy, storage capacity, compute capacity, and thermal rates. The output includes per-run metrics, summary confidence intervals, paired Predictive-versus-baseline comparisons, and a manifest with hashes. Multipliers are sensitivity assumptions, not measured physical values. See [`docs/calibration.md`](docs/calibration.md) before interpreting or replacing them with hardware measurements.
@@ -116,8 +116,22 @@ For each scenario and workload seed, every scheduler receives exactly the same g
 
 ## Known scope and future work
 
-- Calibrate power, compute time, compression, memory, and thermal parameters with a Raspberry Pi or representative onboard-compute platform.
-- Replace synthetic contacts/workloads with mission data or a validated channel/orbit model.
+- Measure power, compute time, compression, memory, and thermal parameters on the selected ESP32 board.
+- Replace synthetic contacts/workloads with mission data or a documented channel/orbit model.
 - Extend the heuristic to multi-satellite contacts, preemption, shared-link reservations, and formal optimization baselines.
 - Add hardware-in-the-loop workload profiling (for example, real compression or inference latency/energy) before claiming device-level efficiency.
 - See [`docs/calibration.md`](docs/calibration.md) for a measurement protocol and a template for collecting hardware data.
+
+## ESP32 hardware prototype
+
+The repository now contains an integer task contract, pure EDF/Rule policy modules, a portable C candidate
+selector, assumed bench-scale scenarios, and firmware scaffolding. The host simulator still uses synthetic
+models; no firmware boot, radio behavior, power, or temperature measurement is claimed. ESP-IDF and board
+build instructions are in [`docs/esp32_prototype_guide.md`](docs/esp32_prototype_guide.md). The ESP32-S3 is
+the default target; choose the exact SKU and confirm its memory before bench work. For an extracted folder
+without Git metadata, evaluation commands can use `--allow-dirty`; this marks source provenance unavailable.
+
+Allowed wording: “We have reproducible scheduling simulations and a concrete ESP32 hardware-in-the-loop plan.
+The current results are synthetic; our next phase ports the scheduler and measures real board behavior.”
+Do not describe synthetic outputs as board measurements or radio validation.
+The Raspberry Pi 5 was the earlier platform candidate; the current prototype target is ESP32.

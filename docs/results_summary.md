@@ -22,6 +22,6 @@ The strongest evidence for the new reference policies is scenario-specific: cont
 
 ## Interpretation
 
-These are simulator results under explicitly synthetic coefficients and generated workloads. They are useful for regression, policy comparison, and identifying failure modes. They are not evidence of satellite performance or calibrated energy, thermal, radio, or compute behavior.
+These are simulator results under explicitly synthetic coefficients and generated workloads. They are useful for regression, policy comparison, and identifying failure modes. They are not evidence of satellite performance or measured energy, thermal, radio, or compute behavior.
 
 The next research improvement should target the Predictive policy’s cross-scenario objective and state projection. It trails Rule by about 4.16 percentage points in the normal scenario and does not lead the aggregate comparison. Add targeted tests for resource contention and contact horizons, then compare changes on new held-out seeds while keeping this artifact frozen. Hardware-in-the-loop calibration can follow when the physical prototype exists.

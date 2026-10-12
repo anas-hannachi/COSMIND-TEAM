@@ -18,6 +18,7 @@ from ..analysis.statistics import paired_comparisons, summarize_rows, write_csv
 from ..scenarios import (
     ROOT,
     SCENARIO_NAMES,
+    BASE_SCENARIO_NAMES,
     build_simulation,
     config_sha256,
     generate_tasks,
@@ -115,6 +116,10 @@ def _metadata(
             profile: model_profile_sha256(profile)
             for profile in sorted({load_config(scenario)["model_profile"] for scenario in scenarios})
         },
+        "model_profile_provenance": {
+            profile: load_config(next(s for s in scenarios if load_config(s)["model_profile"] == profile)).get("provenance", {})
+            for profile in sorted({load_config(scenario)["model_profile"] for scenario in scenarios})
+        },
         "schedulers": list(schedulers),
         "primary_metric": "timely_value_retention",
         "outcome_partition": "generated = timely + late + expired + rejected + unfinished + failed",
@@ -153,7 +158,7 @@ def _write_evaluation_readme(
 
 def run(
     *,
-    scenarios: tuple[str, ...] = SCENARIO_NAMES,
+    scenarios: tuple[str, ...] = BASE_SCENARIO_NAMES,
     schedulers: tuple[str, ...] = DEFAULT_SCHEDULERS,
     seeds=range(10),
     output: str | Path = "results/evaluation",
@@ -306,7 +311,8 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, default=10, help="Number of consecutive workload seeds.")
     parser.add_argument("--output", default="results/evaluation")
     parser.add_argument("--evaluation-version", default="development")
-    parser.add_argument("--scenarios", nargs="*", choices=SCENARIO_NAMES, default=SCENARIO_NAMES)
+    parser.add_argument("--scenarios", nargs="*", choices=SCENARIO_NAMES, default=BASE_SCENARIO_NAMES)
+    parser.add_argument("--include-bench", action="store_true", help="Append the assumed bench scenarios.")
     parser.add_argument("--schedulers", nargs="*", choices=DEFAULT_SCHEDULERS, default=DEFAULT_SCHEDULERS)
     parser.add_argument("--allow-dirty", action="store_true", help="Allow disposable development output from uncommitted source.")
     parser.add_argument("--append", action="store_true", help="Append non-overlapping scenario/policy/seed runs to an existing artifact.")
@@ -314,7 +320,9 @@ def main() -> None:
     if args.seeds <= 0:
         parser.error("--seeds must be positive")
     run(
-        scenarios=tuple(args.scenarios),
+        scenarios=tuple(args.scenarios) + (() if not args.include_bench else tuple(
+            name for name in SCENARIO_NAMES if name.startswith("bench_") and name not in args.scenarios
+        )),
         schedulers=tuple(args.schedulers),
         seeds=range(args.seed_start, args.seed_start + args.seeds),
         output=args.output,

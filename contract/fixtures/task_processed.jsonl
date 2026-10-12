@@ -1,0 +1,1 @@
+{"crc":3716142657,"seq":1,"task":{"actual_output_bytes":null,"base_proc_ms":500,"created_ms":0,"deadline_ms":10000,"demand_milli":100,"id":"100-0","input_bytes":1000,"kind":"telemetry","mem_req_bytes":100,"output_bytes_est":500,"payload_bytes":500,"priority":2,"processed":true,"science_payload":null,"value_milli":400},"type":"task_submit","v":1}

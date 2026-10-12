@@ -4,22 +4,22 @@ This plan connects the simulator to a later bench prototype. It does not claim t
 
 ## 1. Select and describe the target
 
-Choose a representative onboard-compute board and record its exact model, memory, storage, power supply, operating system, cooling setup, and measurement equipment. Keep this device description with the raw measurements so results can be repeated on the same setup.
+Select the ESP32 target and exact board SKU, PSRAM, supply, ESP-IDF version, CPU frequency, and input-side measurement equipment. Keep this description with raw observations. Current defaults and open choices are listed in [`hardware_decisions.md`](hardware_decisions.md).
 
 ## 2. Profile representative workloads
 
-For each task family, record the input, configuration, output size, wall time, energy at the board input, peak memory, and peak temperature. Include at least:
+For each task family, record input and actual output bytes, configuration, elapsed time, input energy, internal/PSRAM heap, and chip and ambient temperature. Include at least:
 
 - a small telemetry transform;
-- image compression at several image sizes and compression settings;
-- one representative science or inference workload;
+- deterministic synthetic compression at several buffer sizes;
+- one selected numeric workload (vision and inference are out of scope here);
 - an idle measurement for the same board and operating conditions.
 
-Run repeated trials per configuration and retain every raw trial. Record failures and thermal throttling rather than dropping those runs. The starter columns are in [`calibration_measurements.csv`](calibration_measurements.csv).
+Warm up, then retain at least 30 trials per configuration. Preserve failures and software throttling. The starter columns are in [`calibration_measurements.csv`](calibration_measurements.csv).
 
 ## 3. Measure communications separately
 
-For each intended link mode, record payload size, throughput, latency, transfer energy, and contact start/end timing. Prefer replayable measured traces or a documented link emulator over a single nominal bandwidth value. The current simulator cannot transfer a task across multiple contact windows, so log cases that exceed one window for future model work.
+For serial or optional Wi-Fi tests, record payload size, throughput, latency, input energy, and interval. Emulated link results remain labelled emulated. The current simulator cannot transfer a task across multiple contact windows; log such cases as a known gap.
 
 ## 4. Create a measured profile
 

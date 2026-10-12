@@ -7,11 +7,12 @@ class ThermalModel:
     heating_c_per_s: float = .08
     cooling_c_per_s: float = .02
     throttle_at_fraction: float = .85
+    transmit_heating_c_per_s: float = 0.0
 
     def __post_init__(self) -> None:
         if self.max_temp_c <= -20:
             raise ValueError("max_temp_c must be above the thermal floor")
-        if self.heating_c_per_s < 0 or self.cooling_c_per_s < 0:
+        if self.heating_c_per_s < 0 or self.cooling_c_per_s < 0 or self.transmit_heating_c_per_s < 0:
             raise ValueError("thermal rates cannot be negative")
         if not 0 < self.throttle_at_fraction <= 1:
             raise ValueError("throttle_at_fraction must be in (0, 1]")
@@ -21,4 +22,7 @@ class ThermalModel:
     @property
     def headroom_c(self) -> float: return max(0, self.max_temp_c - self.temperature_c)
     def evolve(self, action: str, duration_s: float) -> None:
-        self.temperature_c = max(-20, min(self.max_temp_c, self.temperature_c + (self.heating_c_per_s if action == "PROCESS" else -self.cooling_c_per_s) * duration_s))
+        heating = (self.heating_c_per_s if action == "PROCESS" else
+                   self.transmit_heating_c_per_s if action == "TRANSMIT" and self.transmit_heating_c_per_s > 0 else
+                   -self.cooling_c_per_s)
+        self.temperature_c = max(-20, min(self.max_temp_c, self.temperature_c + heating * duration_s))

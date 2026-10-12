@@ -33,7 +33,34 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
 
       - name: Lint Python code
-        run: python -m ruff check --select F pmars_simulation tests
+        run: python -m ruff check --select F pmars_simulation tests tools
 
       - name: Run regression suite
         run: python -m pytest
+
+  firmware-host:
+    name: Portable C host build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install native tools and sanitizer runtimes
+        run: sudo apt-get update && sudo apt-get install -y cmake gcc libasan8 libubsan1
+      - name: Build and test C core
+        run: cmake -S firmware -B build && cmake --build build && ctest --test-dir build --output-on-failure
+      - name: Enforce C stack frame and call-chain budgets
+        run: python tools/check_stack_usage.py
+      - name: Reject dynamic allocation and floating point in core
+        run: '! grep -En "malloc|free|double|float" firmware/pmars_core/src firmware/pmars_core/include'
+
+  esp-idf:
+    name: ESP-IDF builds
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build ESP32-S3
+        working-directory: firmware/esp32
+        run: idf.py set-target esp32s3 && idf.py build
+      - name: Build classic ESP32
+        working-directory: firmware/esp32
+        run: idf.py set-target esp32 && idf.py build

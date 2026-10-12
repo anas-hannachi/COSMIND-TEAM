@@ -31,7 +31,7 @@ from .schedulers import (
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SCENARIO_NAMES = (
+BASE_SCENARIO_NAMES = (
     "normal",
     "low_energy",
     "poor_link",
@@ -40,6 +40,8 @@ SCENARIO_NAMES = (
     "energy_link_stress",
     "thermal_burst_stress",
 )
+BENCH_SCENARIO_NAMES = ("bench_normal", "bench_burst", "bench_poor_link", "bench_low_energy")
+SCENARIO_NAMES = BASE_SCENARIO_NAMES + BENCH_SCENARIO_NAMES
 
 
 def load_config(name: str) -> dict:
@@ -61,10 +63,20 @@ def load_config(name: str) -> dict:
 
 
 def model_profile_sha256(profile_name: str) -> str:
+    """Hash normalized LF bytes so checkout line endings do not affect provenance."""
+    return hashlib.sha256(_profile_bytes(profile_name).replace(b"\r\n", b"\n")).hexdigest()
+
+
+def model_profile_sha256_raw(profile_name: str) -> str:
+    """Return the legacy raw-byte profile hash used by frozen v3 manifests."""
+    return hashlib.sha256(_profile_bytes(profile_name)).hexdigest()
+
+
+def _profile_bytes(profile_name: str) -> bytes:
     profile_path = ROOT / "profiles" / f"{profile_name}.yaml"
     if not profile_path.is_file():
         raise ValueError(f"unknown model profile: {profile_name}")
-    return hashlib.sha256(profile_path.read_bytes()).hexdigest()
+    return profile_path.read_bytes()
 
 
 def config_sha256(config: dict) -> str:
@@ -85,12 +97,15 @@ def generate_tasks(config: dict, seed: int) -> list[Task]:
     workload = config["workload"]
     # type, nominal size MB, priority, processed/raw ratio, freshness per min,
     # memory MB
-    kinds = [
+    kinds = workload.get("kinds") or [
         ("telemetry", 3.0, 1, 0.20, 0.10, 64.0),
         ("earth_image", 40.0, 5, 0.70, 0.03, 1024.0),
         ("emergency", 12.0, 9, 0.90, 0.80, 256.0),
         ("science_image", 80.0, 4, 0.50, 0.005, 1536.0),
     ]
+    if "kinds" in workload:
+        kinds = [(item["type"], item["size_mb"], item["priority"], item["output_ratio"],
+                  item.get("freshness_per_min", 0.0), item.get("memory_mb", 0.01)) for item in kinds]
     while time_s < duration_s:
         time_s += rng.uniform(*workload["interarrival_s"])
         if time_s >= duration_s:

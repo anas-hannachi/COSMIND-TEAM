@@ -8,12 +8,31 @@ from collections import defaultdict
 from pathlib import Path
 
 
-# Two-sided 95% Student-t critical values for common benchmark sizes. Falling
-# back to 1.96 is conservative enough for the descriptive summaries here.
-T95 = {2: 12.706, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447,
-       8: 2.365, 9: 2.306, 10: 2.262, 11: 2.228, 12: 2.201, 13: 2.179,
-       14: 2.160, 15: 2.145, 16: 2.131, 17: 2.120, 18: 2.110, 19: 2.101,
-       20: 2.093}
+# Two-sided 95% Student-t critical values indexed by degrees of freedom.
+T95 = {
+    1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447,
+    7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179,
+    13: 2.160, 14: 2.145, 15: 2.131, 16: 2.120, 17: 2.110, 18: 2.101,
+    19: 2.093, 20: 2.086, 21: 2.080, 22: 2.074, 23: 2.069, 24: 2.064,
+    25: 2.060, 26: 2.056, 27: 2.052, 28: 2.048, 29: 2.045,
+}
+_TAIL_T95 = {30: 2.042, 40: 2.021, 60: 2.000, 120: 1.980, 10**9: 1.960}
+
+
+def t95(sample_count: int) -> float:
+    """Return two-sided 95% Student-t critical value for sample size."""
+    if sample_count <= 1:
+        return 0.0
+    degrees = sample_count - 1
+    if degrees in T95:
+        return T95[degrees]
+    points = sorted(_TAIL_T95.items())
+    for (lo_df, lo_value), (hi_df, hi_value) in zip(points, points[1:]):
+        if lo_df <= degrees <= hi_df:
+            lo_inv, hi_inv = 1 / lo_df, 1 / hi_df
+            fraction = (1 / degrees - lo_inv) / (hi_inv - lo_inv)
+            return lo_value + fraction * (hi_value - lo_value)
+    return 1.960
 
 
 def mean_ci95(values: list[float]) -> tuple[float, float, float]:
@@ -23,7 +42,7 @@ def mean_ci95(values: list[float]) -> tuple[float, float, float]:
     if len(values) == 1:
         return mean, 0.0, 0.0
     standard_deviation = statistics.stdev(values)
-    critical = T95.get(len(values), 1.96)
+    critical = t95(len(values))
     half_width = critical * standard_deviation / math.sqrt(len(values))
     return mean, standard_deviation, half_width
 

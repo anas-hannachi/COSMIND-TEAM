@@ -1,0 +1,18 @@
+menu "PMARS hardware abstraction"
+choice PMARS_CLOCK_BACKEND
+    prompt "Clock backend"
+    default PMARS_CLOCK_VIRTUAL
+config PMARS_CLOCK_VIRTUAL
+    bool "Virtual clock"
+config PMARS_CLOCK_ESP_TIMER
+    bool "esp_timer"
+endchoice
+choice PMARS_LINK_BACKEND
+    prompt "Link backend"
+    default PMARS_LINK_EMULATED
+config PMARS_LINK_EMULATED
+    bool "Emulated link"
+config PMARS_LINK_SERIAL
+    bool "Serial sink"
+endchoice
+endmenu

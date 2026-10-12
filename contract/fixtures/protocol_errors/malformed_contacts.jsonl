@@ -1,0 +1,1 @@
+{"compute_capacity_milli":100000,"contacts":[["bad"]],"crc":3690918724,"drain_horizon_ms":100000,"energy_mj":100000,"memory_available_bytes":10000,"now_ms":0,"processing_power_mw":10,"seq":0,"storage_total_bytes":10000,"storage_used_bytes":0,"store_power_mw":10,"throttle_fraction_milli":1000,"transmit_power_mw":10,"type":"config","v":1}

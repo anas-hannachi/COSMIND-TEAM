@@ -1,0 +1,14 @@
+{
+  "bad_crc": {"expected_code": "bad_crc"},
+  "bad_version": {"expected_code": "bad_version"},
+  "unknown_type": {"expected_code": "unknown_type"},
+  "bound_exceeded_tasks": {"expected_code": "bound_exceeded"},
+  "bound_exceeded_contacts": {"expected_code": "bound_exceeded"},
+  "line_too_long": {"expected_code": "line_too_long"},
+  "malformed_number": {"expected_code": "malformed_number"},
+  "duplicate_task_id": {"expected_code": "duplicate_task_id"},
+  "queue_full": {"expected_code": "queue_full"},
+  "malformed_contacts": {"expected_code": "malformed_contacts"},
+  "bad_sequence_or_type": {"expected_code": "bad_sequence_or_type"},
+  "admission_rejected": {"expected_code": "admission_rejected"}
+}
