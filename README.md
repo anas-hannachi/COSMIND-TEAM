@@ -1,4 +1,4 @@
-# PMARS Phase-2 Scheduler Prototype
+# PMARS Satellite Scheduler Prototype
 
 **A reproducible satellite task-scheduling simulator with an ESP32-S3 software prototype path.**
 
