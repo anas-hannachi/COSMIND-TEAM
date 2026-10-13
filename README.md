@@ -2,10 +2,6 @@
 
 **A reproducible satellite task-scheduling simulator with an ESP32-S3 software prototype path.**
 
-PMARS explores how an onboard scheduler can choose **PROCESS**, **STORE**, and **TRANSMIT** actions for time-sensitive satellite tasks. This repository is a research prototype for IASTAM Track 1 / Problem 1. The discrete-event simulator is not flight software, and its modeled energy, storage, compute, thermal, radio, and workload values are assumptions rather than board measurements.
-
-> **Current evidence:** reproducible scheduling simulations and firmware scaffolding are available. No ESP32 firmware boot, radio behavior, power, or temperature measurements are claimed. The next phase is to run the scheduler on the selected board and measure its behavior.
-
 ## What is in the repository
 
 - A SimPy virtual-time satellite environment with finite battery, solar and eclipse cycles, storage and compute limits, thermal evolution, changing contact windows, deadlines, and freshness decay.
