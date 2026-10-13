@@ -1,26 +1,28 @@
-# PMARS Phase-2 scheduler prototype
+# PMARS Phase-2 Scheduler Prototype
 
-This repository is a reproducible, discrete-event software prototype for the IASTAM Track 1 / Problem 1 research phase: scheduling onboard **PROCESS**, **STORE**, and **TRANSMIT** actions for time-sensitive satellite tasks.
+**A reproducible satellite task-scheduling simulator with an ESP32-S3 software prototype path.**
 
-It is a simulator, not a flight implementation. Its energy, storage, CPU, thermal, link, and workload values are explicit modeling assumptions; no ESP32 measurements exist yet.
+PMARS explores how an onboard scheduler can choose **PROCESS**, **STORE**, and **TRANSMIT** actions for time-sensitive satellite tasks. This repository is a research prototype for IASTAM Track 1 / Problem 1. The discrete-event simulator is not flight software, and its modeled energy, storage, compute, thermal, radio, and workload values are assumptions rather than board measurements.
 
-## What the project implements
+> **Current evidence:** reproducible scheduling simulations and firmware scaffolding are available. No ESP32 firmware boot, radio behavior, power, or temperature measurements are claimed. The next phase is to run the scheduler on the selected board and measure its behavior.
 
-- A SimPy virtual-time satellite environment with finite battery, solar/eclipse cycles, storage, RAM/compute eligibility, thermal evolution, time-varying contact windows, deadlines, and freshness decay.
-- An outcome-complete task ledger. Every generated task ends in exactly one state: timely delivery, late delivery, expiry, rejection at admission, unfinished, or failed.
-- Six reproducible policies: seeded feasible `random`, transparent `rule`, immediate-utility `greedy`, feasibility-aware `edf`, contact-batch `contact_knapsack`, and bounded one-step-rollout `predictive`.
-- Seven deterministic synthetic scenarios, including combined `energy_link_stress` and `thermal_burst_stress` cases.
-- Named physical-model profiles in `profiles/`, with hashes copied into evaluation manifests.
-- A matched-seed experiment runner that exports workload manifests, per-run metrics, per-task outcomes, summaries, paired comparisons, SVG figures, and a simulator-generated lifecycle trace.
+## What is in the repository
 
-The Predictive policy is deliberately described as a heuristic. It scores only routes it can project as deadline-feasible (raw downlink now, process then a feasible downlink, or store until a feasible downlink); it does not claim global optimization or capacity reservation.
-The historical `contact_knapsack` implementation in `evaluation_v2` used an exact 0/1 value-packing formulation over rounded transfer durations but had a capacity-reconstruction defect. Commit `24b8649` repairs that path and adds counterexample tests; the corrected full results are in `evaluation_v3`. Neither version is a global mission optimizer.
+- A SimPy virtual-time satellite environment with finite battery, solar and eclipse cycles, storage and compute limits, thermal evolution, changing contact windows, deadlines, and freshness decay.
+- An outcome-complete task ledger: each generated task ends as timely delivery, late delivery, expiry, admission rejection, unfinished, or failed.
+- Six reproducible policies: seeded feasible random, transparent rule, immediate-utility greedy, feasibility-aware EDF, contact-batch knapsack, and bounded one-step predictive heuristic.
+- Seven deterministic synthetic scenarios, including combined energy/link stress and thermal burst stress.
+- Versioned physical-model profiles whose hashes are recorded in experiment manifests.
+- Matched-seed experiment and sensitivity runners that export run metrics, per-task outcomes, summaries, paired comparisons, figures, workloads, and lifecycle traces.
+- A portable C candidate selector, integer task contract, pure EDF/Rule policy modules, host tests, and ESP-IDF firmware scaffolding for an ESP32-S3 target.
 
-## Quick start
+### Scheduler scope
 
-Use Python 3.11 or newer. Create and activate a virtual environment, then install the development dependencies.
+The Predictive policy is a bounded heuristic. It scores routes it can project as deadline-feasible: direct downlink, processing followed by a feasible downlink, or storage until a feasible downlink. It does not guarantee a global optimum or reserve future capacity. The `contact_knapsack` implementation in `evaluation_v2` had a capacity-reconstruction defect; commit `24b8649` repaired it and added counterexample tests. Use the corrected `evaluation_v3` evidence. Neither policy is a global mission optimizer.
 
-macOS/Linux:
+## Quick start: simulator
+
+Use Python 3.11 or newer:
 
 ```bash
 python3 -m venv .venv
@@ -30,7 +32,7 @@ python -m ruff check --select F pmars_simulation tests
 python -m pytest
 ```
 
-Windows PowerShell:
+PowerShell:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -40,65 +42,52 @@ python -m ruff check --select F pmars_simulation tests
 python -m pytest
 ```
 
-GitHub Actions runs this regression suite on Python 3.11 and 3.12 for pushes to `main` and pull requests.
-The same workflow checks for undefined names and unused imports with Ruff before running the tests.
+GitHub Actions runs the regression suite on Python 3.11 and 3.12. The tests cover lifecycle accounting, resource limits, deterministic workloads, scheduler selection, profile resolution, sensitivity sweeps, and trace generation.
 
-## Project map
+## Reproduce the corrected evaluation
 
-- `pmars_simulation/core/` - task lifecycle and the discrete-event simulation loop;
-- `pmars_simulation/environment/` - energy, compute, thermal, storage, and radio models;
-- `pmars_simulation/schedulers/` - six scheduling policies, including EDF and a contact-batch knapsack reference;
-- `scenarios/` - seven synthetic mission configurations;
-- `profiles/` - named, versioned physical-model assumptions used by scenarios;
-- `tests/` - lifecycle, feasibility, determinism, and resource-bound regression tests;
-- `results/evaluation_v1/`, `results/evaluation_v2/`, and `results/evaluation_v3/` - versioned evaluation inputs, summaries, and generated evidence.
-
-The regression suite covers lifecycle accounting, resource bounds, deterministic workloads, scheduler selection, named profile resolution, sensitivity sweeps, and trace generation.
-
-## Reproduce the held-out evaluation
-
-Commit the source first. The runner intentionally refuses a dirty source tree so every artifact identifies an exact commit.
+The runner requires a clean, committed source tree so its manifest can identify the exact revision. From the repository root, run:
 
 ```bash
-python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v2 --evaluation-version evaluation_v2
+python -m pmars_simulation.experiments.runner \
+  --seed-start 100 --seeds 20 \
+  --output results/evaluation_v3 \
+  --evaluation-version evaluation_v3
 ```
 
-This runs 7 scenarios x 6 policies x 20 common workload seeds = 840 simulations. Development/tuning seeds are 0-9; report results with the seed range and model-profile hashes from the manifest.
+This executes 7 scenarios × 6 policies × 20 common workload seeds (840 simulations). Development/tuning seeds are 0–9. Each scheduler receives identical generated tasks for a given scenario and seed.
 
-The output directory contains:
-
-- `raw_runs.csv` - one aggregate metric row per scenario/policy/seed;
-- `task_outcomes.csv.gz` - compressed terminal audit rows for every generated task;
-- `workloads/` and `workload_manifest.csv` - the exact matched workloads and SHA-256 hashes;
-- `summaries/` - mean/95% t-interval summaries and paired Predictive-vs-baseline differences;
-- `figures/` - SVG plots generated from the raw runs;
-- `trace/` - one deterministic arrival -> decision -> process/transmit -> outcome example from real simulator events;
-- `manifest.json` - source commit, package versions, scenario hashes, seed protocol, and run metadata.
-- `profiles/` - exact model-profile files referenced by the run, with hashes in the manifest.
-
-See [`docs/results_summary.md`](docs/results_summary.md) for the current synthetic evaluation and interpretation limits.
-
-The corrected full evaluation is reproduced with:
-
-```bash
-python -m pmars_simulation.experiments.runner --seed-start 100 --seeds 20 --output results/evaluation_v3 --evaluation-version evaluation_v3
-```
-
-See [`docs/results_summary_v3.md`](docs/results_summary_v3.md) for the corrected macro-averages and outcome totals.
+The output includes aggregate runs, compressed task outcomes, workload files and hashes, confidence intervals, paired comparisons, SVG figures, a simulator-generated lifecycle trace, and a manifest with source revision, package versions, scenario hashes, seed protocol, and model-profile hashes. See [the corrected evaluation summary](docs/results_summary_v3.md) for results and interpretation limits. Older evidence remains under `results/evaluation_v1/` and `results/evaluation_v2/`.
 
 ## Sensitivity analysis
 
-After committing source changes, use the one-factor-at-a-time runner to check whether results depend on modeled assumptions. The default output is `results/sensitivity`. The default sweep scales processing power to 75%, 100%, and 125% of its configured value across all original scenarios and schedulers, using 20 seeds for each scenario and multiplier. Every scheduler receives the same generated workload for a given scenario, parameter, multiplier, and seed:
+After committing source changes, the default sweep evaluates processing-power multipliers of 75%, 100%, and 125% across the original scenarios and schedulers, using 20 seeds per scenario and multiplier:
 
 ```bash
 python -m pmars_simulation.experiments.sensitivity --output results/sensitivity
 ```
 
-Choose other parameters, scenarios, seed ranges, or multipliers with `--parameters`, `--scenarios`, `--seed-start`, `--seeds`, and `--multipliers`. Supported parameters include power, contact bandwidth, contact-window duration, task interarrival, deadline tightness, available initial energy, storage capacity, compute capacity, and thermal rates. The output includes per-run metrics, summary confidence intervals, paired Predictive-versus-baseline comparisons, and a manifest with hashes. Multipliers are sensitivity assumptions, not measured physical values. See [`docs/calibration.md`](docs/calibration.md) before interpreting or replacing them with hardware measurements.
+Use `--parameters`, `--scenarios`, `--seed-start`, `--seeds`, and `--multipliers` to customize a sweep. Supported assumptions include power, contact bandwidth and duration, task interarrival, deadline tightness, initial energy, storage, compute capacity, and thermal rates. Multipliers are sensitivity assumptions, not measurements. The focused one-seed screening results in [the sensitivity summary](docs/sensitivity_v3_summary.md) are directional, not multi-seed inferential evidence.
 
-The repository also contains [`docs/demonstration.md`](docs/demonstration.md), which describes how to export a deterministic lifecycle showing satellite state, scheduler rationale, PROCESS/STORE/TRANSMIT actions, and the resulting task outcome.
+## ESP32-S3 prototype
 
-The focused screening sweep is summarized in [`docs/sensitivity_v3_summary.md`](docs/sensitivity_v3_summary.md); its one-seed results are directional sensitivity evidence, not multi-seed inferential results.
+The firmware directory contains a portable scheduler core, protocol and task-contract code, host-side test scaffolding, and ESP-IDF project scaffolding. Follow the [ESP32 prototype guide](docs/esp32_prototype_guide.md) for build setup and the [measurement protocol](docs/esp32_measurement_protocol.md) before collecting board data. ESP32-S3 is the current target; confirm the exact SKU and available memory before bench work.
+
+The simulator remains synthetic. Do not interpret its energy, timing, thermal, or radio outputs as ESP32 measurements or radio validation. See [calibration guidance](docs/calibration.md) for the measurement plan and data templates.
+
+## Project map
+
+| Path | Contents |
+| --- | --- |
+| `pmars_simulation/core/` | Task lifecycle and discrete-event simulation loop |
+| `pmars_simulation/environment/` | Energy, compute, thermal, storage, and radio models |
+| `pmars_simulation/schedulers/` | Six scheduling policies |
+| `firmware/` | Portable C scheduler, host scaffolding, and ESP-IDF project |
+| `contract/` | Task and protocol schemas, limits, and fixtures |
+| `scenarios/`, `profiles/` | Synthetic mission scenarios and named model assumptions |
+| `tests/` | Simulator and scheduler regression tests |
+| `results/` | Versioned evaluations and generated evidence |
+| `docs/` | Calibration, evaluation, demonstration, and hardware guides |
 
 ## Metrics and interpretation
 
@@ -106,32 +95,17 @@ The primary metric is **timely mission-value retention**:
 
 ```text
 sum(nominal mission value of tasks delivered by their deadline)
--------------------------------------------------------------
+---------------------------------------------------------------
 sum(nominal mission value of all generated tasks)
 ```
 
-Secondary metrics include timely task/critical-task completion, late/expired/rejected outcomes, latency, modeled gross energy, battery extrema, contact use, storage use, processing duty cycle, and temperature. Freshness-adjusted value is reported only as a sensitivity metric because its decay parameters are synthetic.
+Secondary metrics include timely task and critical-task completion, terminal outcomes, latency, modeled gross energy, battery extrema, contact and storage use, processing duty cycle, and temperature. Freshness-adjusted value is a sensitivity metric because its decay parameters are synthetic. Interpret paired comparisons with their confidence intervals and report scenarios where Predictive does not win; a positive mean alone is insufficient evidence.
 
-For each scenario and workload seed, every scheduler receives exactly the same generated tasks. Predictive comparisons with Greedy and Rule are paired by workload seed. A positive mean alone is not a result: interpret the paired 95% interval and include scenarios where Predictive does not win.
+## Known limitations and next steps
 
-## Known scope and future work
+- Measure power, compute time, compression, memory, and thermal behavior on the selected ESP32 board.
+- Replace synthetic contacts and workloads with mission data or a documented channel/orbit model.
+- Extend the heuristic with multi-satellite contacts, preemption, shared-link reservations, and formal optimization baselines.
+- Profile real compression or inference workloads on hardware before making device-level efficiency claims.
 
-- Measure power, compute time, compression, memory, and thermal parameters on the selected ESP32 board.
-- Replace synthetic contacts/workloads with mission data or a documented channel/orbit model.
-- Extend the heuristic to multi-satellite contacts, preemption, shared-link reservations, and formal optimization baselines.
-- Add hardware-in-the-loop workload profiling (for example, real compression or inference latency/energy) before claiming device-level efficiency.
-- See [`docs/calibration.md`](docs/calibration.md) for a measurement protocol and a template for collecting hardware data.
-
-## ESP32 hardware prototype
-
-The repository now contains an integer task contract, pure EDF/Rule policy modules, a portable C candidate
-selector, assumed bench-scale scenarios, and firmware scaffolding. The host simulator still uses synthetic
-models; no firmware boot, radio behavior, power, or temperature measurement is claimed. ESP-IDF and board
-build instructions are in [`docs/esp32_prototype_guide.md`](docs/esp32_prototype_guide.md). The ESP32-S3 is
-the default target; choose the exact SKU and confirm its memory before bench work. For an extracted folder
-without Git metadata, evaluation commands can use `--allow-dirty`; this marks source provenance unavailable.
-
-Allowed wording: “We have reproducible scheduling simulations and a concrete ESP32 hardware-in-the-loop plan.
-The current results are synthetic; our next phase ports the scheduler and measures real board behavior.”
-Do not describe synthetic outputs as board measurements or radio validation.
-The Raspberry Pi 5 was the earlier platform candidate; the current prototype target is ESP32.
+**Accurate project summary:** “We have reproducible scheduling simulations and a concrete ESP32 hardware-in-the-loop plan. The current results are synthetic; our next phase ports the scheduler and measures real board behavior.”
